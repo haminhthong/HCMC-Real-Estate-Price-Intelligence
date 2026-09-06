@@ -1,0 +1,7 @@
+{
+  "residual_log_quantile": 0.7927018417163012,
+  "target_coverage": 0.8,
+  "calibration_samples": 72,
+  "mean_calibration_residual": 0.4018125127682795,
+  "median_calibration_residual": 0.31037262335526705
+}

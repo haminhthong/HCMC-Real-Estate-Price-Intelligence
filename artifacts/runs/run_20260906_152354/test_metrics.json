@@ -1,0 +1,9 @@
+{
+  "mae_million": 4621.7484297525525,
+  "median_ae_million": 2157.360730535445,
+  "rmse_million": 7874.047654167895,
+  "r2": 0.13384006598114562,
+  "mape_percent": 35.958287194704795,
+  "wape_percent": 42.92,
+  "smape_percent": 40.54
+}

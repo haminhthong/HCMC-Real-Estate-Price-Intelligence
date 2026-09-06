@@ -1,0 +1,70 @@
+{
+  "source_file": "data_public_sample.csv",
+  "model_version": "1.2.0",
+  "rows_raw": 2500,
+  "rows_valid": 727,
+  "rows_clean": 723,
+  "unique_property_groups": 707,
+  "rows_removed_by_reason": {
+    "unsupported_property_type": 1587,
+    "numeric_or_price_outliers": 186,
+    "exact_duplicate_listings": 4
+  },
+  "missing_rate_by_column": {
+    "Title": 0.0,
+    "Price": 0.0,
+    "Area": 0.0,
+    "Location": 0.0,
+    "Listing ID": 0.0,
+    "Last Updated": 0.0,
+    "Property Type": 0.0,
+    "Width": 53.11,
+    "Length": 64.59,
+    "Bedrooms": 21.02,
+    "Bathrooms": 48.69,
+    "Floors": 62.79,
+    "Position": 52.42,
+    "Direction": 76.63,
+    "Alley Width": 82.3,
+    "Road Type": 84.37,
+    "Description": 2.49,
+    "Latitude": 72.89,
+    "Longitude": 72.89,
+    "Province": 0.0,
+    "Property Type Slug": 0.0,
+    "Scraped At": 0.0,
+    "Last Updated Date": 0.0,
+    "location_area": 0.0,
+    "listing_date_missing": 0.0,
+    "listing_date": 0.0,
+    "property_group_id": 0.0
+  },
+  "target_percentiles": {
+    "p10": 2400.0,
+    "p25": 3650.0,
+    "p50": 5990.0,
+    "p75": 11200.0,
+    "p90": 22740.0
+  },
+  "area_percentiles": {
+    "p10": 50.0,
+    "p25": 60.0,
+    "p50": 75.0,
+    "p75": 100.0,
+    "p90": 149.4
+  },
+  "date_min": "2025-05-03T21:29:00",
+  "date_max": "2025-09-30T18:27:00",
+  "reference_date_final": "2025-09-29T18:38:00",
+  "split_protocol": "grouped_temporal_split_60_15_10_15_by_latest_group_listing_date",
+  "target": "Price (triệu VND, giá đăng rao)",
+  "promotion_status": {
+    "model_selected": true,
+    "beats_baseline": false,
+    "baseline_improvement_percent": 9.54,
+    "wape_acceptable": false,
+    "interval_calibrated": true,
+    "production_ready": false
+  },
+  "readiness_status": "research_only"
+}

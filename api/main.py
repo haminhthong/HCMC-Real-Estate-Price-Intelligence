@@ -3,7 +3,7 @@
 Ứng dụng cung cấp các HTTP Endpoints:
 - GET /health: Kiểm tra trạng thái hoạt động của máy chủ và mô hình.
 - GET /model-info: Tra cứu thông tin cấu hình, phiên bản và vùng hỗ trợ.
-- POST /predict: Tiếp nhận thông tin bất động sản và trả về dự báo giá, khoảng tin cậy conformal (SHAP tắt mặc định).
+- POST /predict: Tiếp nhận thông tin bất động sản và trả về dự báo giá, khoảng dự báo conformal (SHAP tắt mặc định).
 - POST /explain: Tiếp nhận thông tin bất động sản và trả về dự báo giá kèm giải thích SHAP.
 """
 
@@ -26,7 +26,7 @@ app = FastAPI(
     title="HCMC Real Estate Price Intelligence API",
     description=(
         "API ước lượng giá đăng tham khảo cho bất động sản dân dụng tại TP.HCM "
-        "kết hợp Conformal Prediction (Khoảng tin cậy 80%) và SHAP Explainer."
+        "kết hợp Conformal Prediction (Khoảng dự báo 80% / Prediction Interval) và SHAP Explainer."
     ),
     version=MODEL_VERSION,
     docs_url="/docs",
@@ -299,7 +299,7 @@ def model_info() -> dict[str, Any]:
 
 @app.post("/predict", response_model=PredictionResponse, summary="Dự báo giá bất động sản", tags=["Prediction"])
 def predict(request: PredictionRequest) -> dict[str, Any]:
-    """Tiếp nhận thông tin chi tiết bất động sản và trả về giá dự báo cùng khoảng tin cậy."""
+    """Tiếp nhận thông tin chi tiết bất động sản và trả về giá dự báo cùng khoảng dự báo (Prediction Interval)."""
     try:
         payload = request.model_dump(by_alias=True)
         include_explanation = payload.pop("include_explanation", False)

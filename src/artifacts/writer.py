@@ -1,10 +1,13 @@
 """Mô-đun ghi và lưu trữ Artifacts chuẩn hóa, có quản lý phiên bản và tách rời Comparables."""
 
-from datetime import datetime
+import hashlib
 import json
 import os
+from datetime import datetime
 from pathlib import Path
 from typing import Any
+from zoneinfo import ZoneInfo
+
 import joblib
 import pandas as pd
 
@@ -36,6 +39,15 @@ def save_atomic_joblib(obj: Any, destination: Path) -> None:
     os.replace(temp_path, destination)
 
 
+def _sha256(path: Path) -> str:
+    """Tính SHA256 theo từng block để manifest tái lập được với file lớn."""
+    digest = hashlib.sha256()
+    with path.open("rb") as handle:
+        for chunk in iter(lambda: handle.read(1024 * 1024), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
+
+
 def save_model_artifacts(
     version: str,
     pipeline: Any,
@@ -57,12 +69,18 @@ def save_model_artifacts(
     v_tag = f"v{version}" if not version.startswith("v") else version
     models_dir = ROOT_DIR / "models" / v_tag
     reference_dir = ROOT_DIR / "reference" / v_tag
-    timestamp_tag = datetime.now().strftime("%Y%m%d_%H%M%S")
+    now_hcmc = datetime.now(ZoneInfo("Asia/Ho_Chi_Minh"))
+    timestamp_tag = now_hcmc.strftime("%Y%m%d_%H%M%S")
     runs_dir = ROOT_DIR / "artifacts" / "runs" / f"run_{timestamp_tag}"
 
-    models_dir.mkdir(parents=True, exist_ok=True)
-    reference_dir.mkdir(parents=True, exist_ok=True)
-    runs_dir.mkdir(parents=True, exist_ok=True)
+    # Version đã tồn tại là immutable: không được chạy lại rồi âm thầm ghi đè.
+    if models_dir.exists() or reference_dir.exists():
+        raise FileExistsError(
+            f"Release {v_tag} đã tồn tại; hãy dùng version/build mới để bảo toàn artifact immutable."
+        )
+    models_dir.mkdir(parents=True, exist_ok=False)
+    reference_dir.mkdir(parents=True, exist_ok=False)
+    runs_dir.mkdir(parents=True, exist_ok=False)
 
     # 1. Lưu pipeline vào thư mục version
     save_atomic_joblib(pipeline, models_dir / "model.joblib")
@@ -99,7 +117,11 @@ def save_model_artifacts(
         "training_ranges": training_ranges,
         "training_quantiles": training_quantiles,
         "target_p90": target_p90,
-        "created_at": datetime.now().isoformat(),
+        "segment_unit_prices": {
+            f"{key[0]} | {key[1]}": float(value)
+            for key, value in segment_unit_prices.items()
+        },
+        "created_at": now_hcmc.isoformat(),
     }
     _write_json(metadata, models_dir / "metadata.json")
 
@@ -131,12 +153,43 @@ def save_model_artifacts(
     ref_export_df = pd.DataFrame(ref_clean_rows)
     try:
         ref_export_df.to_parquet(reference_dir / "comparables.parquet", index=False)
-    except Exception as exc:
+    except (ImportError, OSError, ValueError) as exc:
         logger.warning("Không thể xuất file parquet (sẽ xuất CSV): %s", exc)
     ref_export_df.to_csv(reference_dir / "comparables.csv", index=False)
 
-    # 7. Cập nhật con trỏ active version: models/production.json
-    _write_json({"active_version": v_tag}, ROOT_DIR / "models" / "production.json")
+    # 7. Ghi checksum của release. manifest.json tự loại khỏi danh sách hash
+    # vì hash của chính nó sẽ tạo vòng lặp không thể ổn định.
+    checksum_files: dict[str, str] = {}
+    for root in (models_dir, reference_dir):
+        for path in root.rglob("*"):
+            if path.is_file() and path.name != "manifest.json":
+                checksum_files[str(path.relative_to(ROOT_DIR))] = _sha256(path)
+    manifest_bundle["release"] = {
+        "version": v_tag,
+        "immutable": True,
+        "checksums_sha256": checksum_files,
+        "manifest_excludes": ["manifest.json"],
+    }
+    _write_json(manifest_bundle, models_dir / "manifest.json")
+
+    # Candidate luôn được ghi nhận. Chỉ artifact đạt Release Gate mới được
+    # promote sang production; research-only không được thay đổi pointer hiện tại.
+    release_ready = bool(
+        promotion_result.get("release_gate", {}).get(
+            "production_ready", promotion_result.get("deployment_approved", False)
+        )
+    )
+    _write_json(
+        {"candidate_version": v_tag, "production_ready": release_ready},
+        ROOT_DIR / "models" / "candidate.json",
+    )
+    if release_ready:
+        _write_json({"active_version": v_tag}, ROOT_DIR / "models" / "production.json")
+    else:
+        logger.warning(
+            "Release %s là research_only; production.json được giữ nguyên.",
+            v_tag,
+        )
 
     # 8. Lưu snapshot vào runs/
     _write_json(dataset_manifest.to_dict(), runs_dir / "dataset_manifest.json")
@@ -195,7 +248,8 @@ def save_model_artifacts(
     _write_json(evaluation_result["slice_analysis"], ERROR_ANALYSIS_PATH)
     _write_json(data_card, DATA_CARD_PATH)
 
-    # 10. Ghi gói mô hình tích hợp truyền thống models/price_model.joblib để tương thích ngược 100%
+    # 10. Ghi gói legacy chỉ khi release đã được duyệt. Loader production không
+    # còn fallback âm thầm sang file này.
     legacy_artifact = {
         "pipeline": pipeline,
         "model_type": selection_result["selected_model_name"],
@@ -217,7 +271,8 @@ def save_model_artifacts(
         "target_p90": target_p90,
         "promotion_status": promotion_result,
     }
-    save_atomic_joblib(legacy_artifact, MODEL_PATH)
+    if release_ready:
+        save_atomic_joblib(legacy_artifact, MODEL_PATH)
 
     logger.info("Đã lưu trữ toàn diện Versioned Artifacts tại %s và Legacy Artifact tại %s.", models_dir, MODEL_PATH)
     return {

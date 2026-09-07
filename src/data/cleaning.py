@@ -11,6 +11,7 @@ là đặc trưng mô hình.
 import pandas as pd
 
 from src.config import RESIDENTIAL_TYPES, logger
+
 from .geo import extract_area, validate_gps_coordinates
 from .identity import resolve_property_identities
 from .schema import validate_raw_schema
@@ -66,7 +67,24 @@ def clean_data(raw: pd.DataFrame) -> pd.DataFrame:
     # 7. Định danh bất động sản đa tầng bằng Union-Find
     df, identity_audit = resolve_property_identities(df)
 
-    # 8. Khử trùng lặp ở cấp độ tin đăng (Listing-level deduplication)
+    # 8. Tách identity của listing event khỏi property vật lý.
+    if "source_id" not in df:
+        df["source_id"] = "sample"
+    if "Listing ID" in df:
+        df["listing_event_id"] = (
+            df["source_id"].astype(str) + ":" + df["Listing ID"].astype(str)
+        )
+    else:
+        df["listing_event_id"] = (
+            df["property_group_id"].astype(str)
+            + ":"
+            + df["listing_date"].astype(str)
+            + ":"
+            + df["Price"].astype(str)
+        )
+
+    # 9. Khử trùng lặp ở cấp độ listing event. Các lần rao lại khác ngày/giá
+    # vẫn được giữ để phản ánh diễn biến thị trường theo thời gian.
     rows_before_dedup = len(df)
     df = df.drop_duplicates(
         subset=["property_group_id", "listing_date", "Price"]
@@ -92,6 +110,12 @@ def clean_data(raw: pd.DataFrame) -> pd.DataFrame:
             "exact_duplicate_listings": exact_listing_duplicates_removed,
         },
         "duplicate_listing_percent": float(round(exact_listing_duplicates_removed / max(rows_raw, 1) * 100, 2)),
+        "unknown_temporal_rows": int((df["temporal_status"] == "unknown").sum())
+        if "temporal_status" in df
+        else 0,
+        "possible_duplicate_rows": int(df["possible_duplicate"].sum())
+        if "possible_duplicate" in df
+        else 0,
     }
     df.attrs["data_audit"] = audit_stats
 

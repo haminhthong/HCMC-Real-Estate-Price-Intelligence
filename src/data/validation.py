@@ -3,7 +3,10 @@
 import numpy as np
 import pandas as pd
 
-CRAWL_DATE: pd.Timestamp = pd.Timestamp("2025-09-30 23:59:59")
+# Giữ tên hằng số để không phá import cũ. Hằng số này không còn được dùng để
+# lấp ngày thiếu: ngày không biết phải được giữ là NaT, không được biến thành
+# một listing mới nhất giả tạo.
+CRAWL_DATE: pd.Timestamp | None = None
 
 NUMERIC_COLUMNS: list[str] = [
     "Price",
@@ -57,25 +60,42 @@ def filter_numeric_outliers(df: pd.DataFrame) -> pd.DataFrame:
 def parse_listing_dates(df: pd.DataFrame) -> pd.DataFrame:
     """Phân tích ngày đăng tin và đánh dấu cờ dữ liệu ngày bị khuyết.
 
-    Không tự tiện gán ngày thiếu thành `earliest_date` toàn cục để tránh làm sai lệch
-    giả định dòng thời gian của grouped temporal split.
-    Đánh dấu `listing_date_missing = 1` nếu khuyết ngày.
+    Không tự tiện gán ngày thiếu thành ngày crawl cố định. Nếu có ngày cập nhật
+    thì dùng ngày đó; nếu không có nhưng có thời điểm scrape thì dùng scrape time
+    như proxy quan sát và đánh dấu rõ nguồn ngày.
     """
     out = df.copy()
     if "Last Updated Date" in out:
-        parsed_dates = pd.to_datetime(
+        listing_dates = pd.to_datetime(
             out["Last Updated Date"],
             format="%d/%m/%Y %H:%M",
             errors="coerce",
         )
     elif "listing_date" in out:
-        parsed_dates = pd.to_datetime(out["listing_date"], errors="coerce")
+        listing_dates = pd.to_datetime(out["listing_date"], errors="coerce")
     else:
-        parsed_dates = pd.Series(pd.NaT, index=out.index)
+        listing_dates = pd.Series(pd.NaT, index=out.index)
 
-    missing_mask = parsed_dates.isna()
-    out["listing_date_missing"] = missing_mask.astype(int)
+    if "Scraped At" in out:
+        observed_at = pd.to_datetime(out["Scraped At"], errors="coerce")
+    elif "observed_at" in out:
+        observed_at = pd.to_datetime(out["observed_at"], errors="coerce")
+    else:
+        observed_at = pd.Series(pd.NaT, index=out.index)
 
-    # Nếu khuyết ngày, gán mốc crawl mặc định có kiểm soát thay vì giả định là tin cổ nhất
-    out["listing_date"] = parsed_dates.fillna(CRAWL_DATE)
+    proxy_mask = listing_dates.isna() & observed_at.notna()
+    unknown_mask = listing_dates.isna() & observed_at.isna()
+    out["observed_at"] = observed_at
+    out["listing_date"] = listing_dates.where(~proxy_mask, observed_at)
+    out["listing_date_missing"] = unknown_mask.astype(int)
+    out["date_source"] = np.select(
+        [listing_dates.notna(), proxy_mask],
+        ["listing_date", "scrape_time_proxy"],
+        default="unknown",
+    )
+    out["temporal_status"] = np.select(
+        [listing_dates.notna(), proxy_mask],
+        ["known", "proxy"],
+        default="unknown",
+    )
     return out

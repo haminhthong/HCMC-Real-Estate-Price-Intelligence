@@ -1,6 +1,7 @@
 """Mô-đun phân chia tập dữ liệu cô lập nhóm bất động sản theo thứ tự thời gian (Group-isolated Temporal Ordering Split)."""
 
 from typing import Any
+
 import numpy as np
 import pandas as pd
 
@@ -28,8 +29,13 @@ def split_group_indices(
     if "property_group_id" not in df or "listing_date" not in df:
         raise ValueError("DataFrame phải chứa các cột 'property_group_id' và 'listing_date' để thực hiện split.")
 
+    # Date unknown không được phép rơi vào cuối chuỗi như thể là dữ liệu mới nhất.
+    dated_df = df.loc[df["listing_date"].notna()].copy()
+    if dated_df.empty:
+        raise ValueError("Không thể split: không có listing_date hợp lệ.")
+
     ordered_groups = (
-        df.groupby("property_group_id", as_index=False)["listing_date"]
+        dated_df.groupby("property_group_id", as_index=False)["listing_date"]
         .max()
         .sort_values(["listing_date", "property_group_id"])
     )
@@ -51,14 +57,14 @@ def split_group_indices(
         ordered_groups.iloc[calibration_end:]["property_group_id"]
     )
 
-    train_idx = df.index[df["property_group_id"].isin(train_groups)].to_numpy()
+    train_idx = df.index[df["property_group_id"].isin(train_groups) & df["listing_date"].notna()].to_numpy()
     validation_idx = df.index[
-        df["property_group_id"].isin(validation_groups)
+        df["property_group_id"].isin(validation_groups) & df["listing_date"].notna()
     ].to_numpy()
     calibration_idx = df.index[
-        df["property_group_id"].isin(calibration_groups)
+        df["property_group_id"].isin(calibration_groups) & df["listing_date"].notna()
     ].to_numpy()
-    test_idx = df.index[df["property_group_id"].isin(test_groups)].to_numpy()
+    test_idx = df.index[df["property_group_id"].isin(test_groups) & df["listing_date"].notna()].to_numpy()
 
     # Kiểm tra tính toàn vẹn (Disjointness test giữa cả 4 tập)
     group_sets = [
@@ -97,12 +103,18 @@ def split_strict_temporal_purged(
     if "property_group_id" not in df or "listing_date" not in df:
         raise ValueError("DataFrame phải chứa 'property_group_id' và 'listing_date'.")
 
-    sorted_dates = df["listing_date"].sort_values().reset_index(drop=True)
-    cutoff_idx = int(len(sorted_dates) * train_val_ratio)
+    dated_df = df.loc[df["listing_date"].notna()].copy()
+    if dated_df.empty:
+        raise ValueError("Không thể split: không có listing_date hợp lệ.")
+    if not 0 < train_val_ratio < 1:
+        raise ValueError("train_val_ratio phải nằm trong khoảng (0, 1).")
+
+    sorted_dates = dated_df["listing_date"].sort_values().reset_index(drop=True)
+    cutoff_idx = min(max(int(len(sorted_dates) * train_val_ratio), 0), len(sorted_dates) - 1)
     cutoff_date = sorted_dates.iloc[cutoff_idx]
 
-    train_mask = df["listing_date"] < cutoff_date
-    test_mask = df["listing_date"] >= cutoff_date
+    train_mask = df["listing_date"].notna() & (df["listing_date"] < cutoff_date)
+    test_mask = df["listing_date"].notna() & (df["listing_date"] >= cutoff_date)
 
     train_groups = set(df.loc[train_mask, "property_group_id"])
     raw_test_groups = set(df.loc[test_mask, "property_group_id"])
@@ -125,6 +137,61 @@ def split_strict_temporal_purged(
     }
 
     return train_indices, test_indices, audit
+
+
+def split_canonical_temporal_purged(
+    df: pd.DataFrame,
+    development_ratio: float = 0.70,
+    calibration_ratio: float = 0.10,
+) -> tuple[np.ndarray, np.ndarray, np.ndarray, dict[str, Any]]:
+    """Chia Development/Calibration/Locked Future Test theo thời gian tuyệt đối.
+
+    Các property xuất hiện ở block trước sẽ bị purge khỏi block sau. Dòng ngày
+    unknown bị loại khỏi benchmark thay vì được coi là ngày mới nhất.
+    """
+    required = {"property_group_id", "listing_date"}
+    if not required.issubset(df.columns):
+        raise ValueError("DataFrame phải chứa 'property_group_id' và 'listing_date'.")
+    if development_ratio <= 0 or calibration_ratio <= 0 or development_ratio + calibration_ratio >= 1:
+        raise ValueError("Tỷ lệ development/calibration không hợp lệ.")
+
+    dated = df.loc[df["listing_date"].notna()].copy()
+    if dated.empty:
+        raise ValueError("Không thể split: không có listing_date hợp lệ.")
+
+    unique_dates = np.sort(dated["listing_date"].drop_duplicates().to_numpy())
+    dev_cutoff = unique_dates[min(max(int(len(unique_dates) * development_ratio), 0), len(unique_dates) - 1)]
+    calibration_cutoff = unique_dates[
+        min(max(int(len(unique_dates) * (development_ratio + calibration_ratio)), 0), len(unique_dates) - 1)
+    ]
+
+    development_mask = dated["listing_date"] < dev_cutoff
+    calibration_mask = (dated["listing_date"] >= dev_cutoff) & (dated["listing_date"] < calibration_cutoff)
+    test_mask = dated["listing_date"] >= calibration_cutoff
+
+    development_groups = set(dated.loc[development_mask, "property_group_id"])
+    calibration_groups = set(dated.loc[calibration_mask, "property_group_id"])
+    calibration_groups -= development_groups
+    test_groups = set(dated.loc[test_mask, "property_group_id"])
+    test_groups -= development_groups | calibration_groups
+
+    development_indices = dated.index[development_mask].to_numpy()
+    calibration_indices = dated.index[
+        calibration_mask & dated["property_group_id"].isin(calibration_groups)
+    ].to_numpy()
+    test_indices = dated.index[test_mask & dated["property_group_id"].isin(test_groups)].to_numpy()
+
+    return development_indices, calibration_indices, test_indices, {
+        "protocol": "strict_temporal_property_purged_70_10_20",
+        "development_cutoff": str(dev_cutoff),
+        "calibration_cutoff": str(calibration_cutoff),
+        "development_rows": len(development_indices),
+        "calibration_rows": len(calibration_indices),
+        "test_rows": len(test_indices),
+        "unknown_date_rows_excluded": int(df["listing_date"].isna().sum()),
+        "calibration_groups_purged": int((set(dated.loc[calibration_mask, "property_group_id"]) - calibration_groups).__len__()),
+        "test_groups_purged": int((set(dated.loc[test_mask, "property_group_id"]) - test_groups).__len__()),
+    }
 
 
 def compare_split_protocols(df: pd.DataFrame) -> dict[str, Any]:

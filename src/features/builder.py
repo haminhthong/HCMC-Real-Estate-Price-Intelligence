@@ -1,10 +1,12 @@
 """Mô-đun xây dựng tập đặc trưng chính thức (Feature Builder) cho huấn luyện và phục vụ."""
 
 from typing import Any
+
 import numpy as np
 import pandas as pd
 
-from src.config import FLAG_FEATURES, MODEL_FEATURES
+from src.config import FLAG_FEATURES, MISSING_INDICATOR_FEATURES, MODEL_FEATURES
+
 from .context import FeatureContext
 from .geospatial import calculate_distance_to_cbd
 from .structural import calculate_input_completeness
@@ -82,7 +84,6 @@ def build_features(
     )
 
     # 6. Căn chỉnh đầy đủ các cột đặc trưng mô hình
-    from src.config import MISSING_INDICATOR_FEATURES
     target_features = context.model_features if context else MODEL_FEATURES
     zero_fill_cols = set(FLAG_FEATURES) | set(MISSING_INDICATOR_FEATURES)
     for col in target_features:

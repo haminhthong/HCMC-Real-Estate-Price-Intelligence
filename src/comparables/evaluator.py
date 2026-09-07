@@ -7,6 +7,7 @@ Naive Median, Segment Median và mô hình Machine Learning.
 """
 
 from typing import Any
+
 import numpy as np
 import pandas as pd
 
@@ -55,6 +56,7 @@ def evaluate_comparables_on_validation(
                 "latitude": float(row["Latitude"]) if pd.notna(row.get("Latitude")) else None,
                 "longitude": float(row["Longitude"]) if pd.notna(row.get("Longitude")) else None,
                 "distance_to_cbd_km": float(row["distance_to_cbd_km"]) if pd.notna(row.get("distance_to_cbd_km")) else None,
+                "listing_date": str(row["listing_date"]) if pd.notna(row.get("listing_date")) else None,
             }
         )
 
@@ -97,7 +99,9 @@ def evaluate_comparables_on_validation(
 
         # Comparable Engine prediction
         query_val = val_row.to_dict()
-        comps, summary = find_comparables(
+        # Định giá tại ngày của validation listing để engine chỉ nhìn lịch sử.
+        query_val["as_of_date"] = val_row.get("listing_date")
+        _, summary = find_comparables(
             model_package=model_package,
             values=query_val,
             n_matches=n_matches,

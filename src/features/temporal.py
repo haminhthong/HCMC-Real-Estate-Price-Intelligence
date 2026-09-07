@@ -1,7 +1,13 @@
 """Mô-đun tính toán đặc trưng thời gian (Temporal Features) và mốc định giá tham chiếu (as-of / valuation date)."""
 
 from typing import Any
+
 import pandas as pd
+
+
+def _parse_datetime_utc(value: Any) -> Any:
+    """Chuẩn hóa ngày giờ về UTC để tránh lỗi trừ tz-naive và tz-aware."""
+    return pd.to_datetime(value, errors="coerce", utc=True)
 
 
 def calculate_days_from_reference(
@@ -23,8 +29,10 @@ def calculate_days_from_reference(
     if reference_date is None:
         return pd.Series(0.0, index=listing_dates.index, dtype=float)
 
-    ref_timestamp = pd.to_datetime(reference_date)
-    parsed_dates = pd.to_datetime(listing_dates, errors="coerce")
+    # Chuẩn hóa cả hai phía về UTC. Dữ liệu cũ thường là tz-naive, trong khi
+    # ngày tham chiếu serving có thể mang múi giờ HCMC.
+    ref_timestamp = _parse_datetime_utc(reference_date)
+    parsed_dates = _parse_datetime_utc(listing_dates)
 
     # Nếu ngày bị khuyết, gán 0
     days = (parsed_dates - ref_timestamp).dt.days
@@ -43,12 +51,16 @@ def calculate_market_time_offset(
     Nếu không có, fallback về `dates` (ngày đăng của tin).
     """
     if as_of_date is not None:
-        ref_ts = pd.to_datetime(reference_date) if reference_date is not None else pd.Timestamp.now()
+        ref_ts = (
+            _parse_datetime_utc(reference_date)
+            if reference_date is not None
+            else pd.Timestamp.now(tz="UTC")
+        )
         if isinstance(as_of_date, pd.Series):
-            as_of_ts = pd.to_datetime(as_of_date, errors="coerce")
+            as_of_ts = _parse_datetime_utc(as_of_date)
             return (as_of_ts - ref_ts).dt.days.fillna(0.0).astype(float)
         else:
-            as_of_ts = pd.to_datetime(as_of_date)
+            as_of_ts = _parse_datetime_utc(as_of_date)
             offset_days = float((as_of_ts - ref_ts).days)
             return pd.Series(offset_days, index=dates.index, dtype=float)
 

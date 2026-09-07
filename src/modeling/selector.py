@@ -1,6 +1,7 @@
 """Mô-đun Phase A: Tuyển chọn mô hình Champion trên tập Validation (Model Selection)."""
 
 from typing import Any
+
 import numpy as np
 import pandas as pd
 from sklearn.pipeline import Pipeline
@@ -9,6 +10,7 @@ from src.config import logger
 from src.evaluation.metrics import regression_metrics
 from src.features.builder import build_features
 from src.features.context import FeatureContext
+
 from .baselines import SegmentMedianBaseline
 from .candidates import CANDIDATE_MODELS, TARGET_FORMULATIONS
 from .pipelines import build_pipeline
@@ -84,6 +86,7 @@ def select_champion_model(
 
     selected_target_fmt, selected_model_name = best_combo
     naive_val_mae = validation_benchmarks["total_price"]["naive_median"]["mae_million"]
+    selected_validation_metrics = validation_benchmarks[selected_target_fmt][selected_model_name]
 
     logger.info(
         "Kết thúc Phase A: Đã chọn Champion model '%s' (target=%s) với Val MAE=%.1f triệu (Naive=%.1f triệu).",
@@ -98,6 +101,9 @@ def select_champion_model(
         "selected_target_fmt": selected_target_fmt,
         "best_val_mae": best_val_mae,
         "naive_val_mae": naive_val_mae,
+        # Gate đọc trực tiếp object này; không được dùng fallback số cứng.
+        "selected_validation_metrics": selected_validation_metrics,
+        "best_candidate_metrics": selected_validation_metrics,
         "validation_benchmarks": validation_benchmarks,
         "reference_date_selection": feature_ctx.reference_date,
     }

@@ -1,8 +1,10 @@
 """Mô-đun quản lý Manifest (Provenance) cho Dataset và Split."""
 
+import hashlib
 from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import Any
+
 import pandas as pd
 
 
@@ -19,6 +21,10 @@ class DatasetManifest:
     date_min: str
     date_max: str
     schema_version: str = "2.0.0"
+    source_sha256: str = "unknown"
+    source_reference: str = "local_file"
+    license_or_terms: str = "unknown"
+    retrieved_at: str = "unknown"
 
     def to_dict(self) -> dict[str, Any]:
         return asdict(self)
@@ -64,8 +70,17 @@ def create_dataset_manifest(
         else "unknown"
     )
 
+    source_file_path = Path(source_path)
+    source_hash = "unknown"
+    if source_file_path.exists() and source_file_path.is_file():
+        digest = hashlib.sha256()
+        with source_file_path.open("rb") as handle:
+            for chunk in iter(lambda: handle.read(1024 * 1024), b""):
+                digest.update(chunk)
+        source_hash = digest.hexdigest()
+
     return DatasetManifest(
-        source_file=Path(source_path).name,
+        source_file=source_file_path.name,
         snapshot_id=snapshot_id,
         rows_raw=audit.get("rows_raw", len(df_clean)),
         rows_valid=audit.get("rows_valid", len(df_clean)),
@@ -73,6 +88,9 @@ def create_dataset_manifest(
         property_groups=df_clean["property_group_id"].nunique() if "property_group_id" in df_clean else 0,
         date_min=date_min,
         date_max=date_max,
+        source_sha256=source_hash,
+        source_reference=str(source_file_path),
+        retrieved_at=pd.Timestamp.now(tz="Asia/Ho_Chi_Minh").isoformat(),
     )
 
 

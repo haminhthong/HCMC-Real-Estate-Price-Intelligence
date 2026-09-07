@@ -1,6 +1,7 @@
 """Mô-đun giải thích mô hình bằng SHAP TreeExplainer."""
 
 from typing import Any
+
 import numpy as np
 import pandas as pd
 
@@ -57,19 +58,24 @@ def explain_top_features(
 
         explainer = shap.TreeExplainer(model)
         shap_values = explainer.shap_values(transformed)
-    except ImportError as exc:
-        raise RuntimeError(
-            "Thiếu thư viện SHAP để giải thích mô hình. Hãy cài requirements.txt."
-        ) from exc
+        scores = np.asarray(shap_values)[0]
+        score_name = "shap_value"
+    except ImportError:
+        # SHAP là dependency tùy chọn. Khi runtime tối giản không có SHAP,
+        # dùng feature_importances_ của tree model làm giải thích xấp xỉ và
+        # ghi rõ tên trường để không giả mạo đây là SHAP value.
+        if not hasattr(model, "feature_importances_"):
+            return []
+        scores = np.asarray(model.feature_importances_, dtype=float)
+        score_name = "feature_importance"
 
-    scores = np.asarray(shap_values)[0]
     top_indices = np.argsort(np.abs(scores))[-5:][::-1]
 
     return [
         {
             "feature": str(feature_names[index]),
             "friendly_name": friendly_feature_name(str(feature_names[index])),
-            "shap_value": round(float(scores[index]), 4),
+            score_name: round(float(scores[index]), 4),
         }
         for index in top_indices
     ]

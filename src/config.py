@@ -104,7 +104,13 @@ MISSING_INDICATOR_FEATURES: list[str] = [
     "alley_width_missing",
 ]
 
-# Tổng hợp toàn bộ danh sách đặc trưng mô hình cốt lõi
-MODEL_FEATURES: list[str] = NUMERIC_FEATURES + CATEGORICAL_FEATURES + FLAG_FEATURES
-EXTENDED_MODEL_FEATURES: list[str] = MODEL_FEATURES + MISSING_INDICATOR_FEATURES
-
+# Hợp đồng đặc trưng duy nhất dùng cho cả huấn luyện và serving.
+# Missingness là tín hiệu có ý nghĩa trong dữ liệu tin đăng bất động sản,
+# vì vậy phải được đưa vào model thay vì chỉ tạo ra rồi bỏ quên.
+MODEL_FEATURES: list[str] = (
+    NUMERIC_FEATURES
+    + CATEGORICAL_FEATURES
+    + FLAG_FEATURES
+    + MISSING_INDICATOR_FEATURES
+)
+EXTENDED_MODEL_FEATURES: list[str] = list(MODEL_FEATURES)

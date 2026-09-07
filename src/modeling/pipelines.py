@@ -15,6 +15,7 @@ from sklearn.preprocessing import OneHotEncoder, StandardScaler
 from src.config import (
     CATEGORICAL_FEATURES,
     FLAG_FEATURES,
+    MISSING_INDICATOR_FEATURES,
     NUMERIC_FEATURES,
     RANDOM_STATE,
 )
@@ -30,7 +31,7 @@ def build_pipeline(model_name: str = "extra_trees") -> Pipeline:
     Returns:
         Pipeline scikit-learn chưa được fit.
     """
-    numeric_features = NUMERIC_FEATURES + FLAG_FEATURES
+    numeric_features = NUMERIC_FEATURES + FLAG_FEATURES + MISSING_INDICATOR_FEATURES
     cat_pipeline = Pipeline(
         [
             (
@@ -90,7 +91,8 @@ def build_pipeline(model_name: str = "extra_trees") -> Pipeline:
         ),
         "extra_trees": ExtraTreesRegressor(
             n_estimators=300,
-            min_samples_leaf=1,
+            min_samples_leaf=5,
+            max_features=0.8,
             n_jobs=1,
             random_state=RANDOM_STATE,
         ),

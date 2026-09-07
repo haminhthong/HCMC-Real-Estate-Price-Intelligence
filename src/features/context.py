@@ -3,11 +3,14 @@
 from dataclasses import asdict, dataclass, field
 from datetime import datetime
 from typing import Any
+from zoneinfo import ZoneInfo
+
 import pandas as pd
 
 from src.config import (
     CATEGORICAL_FEATURES,
     FLAG_FEATURES,
+    MISSING_INDICATOR_FEATURES,
     NUMERIC_FEATURES,
 )
 
@@ -23,11 +26,13 @@ class FeatureContext:
     reference_date: str
     cbd_latitude: float = 10.7769
     cbd_longitude: float = 106.7009
-    feature_schema_version: int = 2
+    feature_schema_version: int = 3
     numeric_features: list[str] = field(default_factory=lambda: list(NUMERIC_FEATURES))
     categorical_features: list[str] = field(default_factory=lambda: list(CATEGORICAL_FEATURES))
     flag_features: list[str] = field(default_factory=lambda: list(FLAG_FEATURES))
-    missing_indicator_features: list[str] = field(default_factory=list)
+    missing_indicator_features: list[str] = field(
+        default_factory=lambda: list(MISSING_INDICATOR_FEATURES)
+    )
 
     @classmethod
     def fit(
@@ -47,7 +52,9 @@ class FeatureContext:
             max_date = df["listing_date"].max()
             ref_str = max_date.isoformat() if hasattr(max_date, "isoformat") else str(max_date)
         else:
-            ref_str = datetime.now().isoformat()
+            # Chỉ dùng thời điểm hiện tại cho các DataFrame serving không có
+            # listing_date. Dữ liệu huấn luyện phải có ngày hợp lệ trước split.
+            ref_str = datetime.now(ZoneInfo("Asia/Ho_Chi_Minh")).isoformat()
 
         return cls(
             reference_date=ref_str,
@@ -66,11 +73,13 @@ class FeatureContext:
             reference_date=data["reference_date"],
             cbd_latitude=data.get("cbd_latitude", 10.7769),
             cbd_longitude=data.get("cbd_longitude", 106.7009),
-            feature_schema_version=data.get("feature_schema_version", 2),
+            feature_schema_version=data.get("feature_schema_version", 3),
             numeric_features=data.get("numeric_features", list(NUMERIC_FEATURES)),
             categorical_features=data.get("categorical_features", list(CATEGORICAL_FEATURES)),
             flag_features=data.get("flag_features", list(FLAG_FEATURES)),
-            missing_indicator_features=data.get("missing_indicator_features", []),
+            missing_indicator_features=data.get(
+                "missing_indicator_features", list(MISSING_INDICATOR_FEATURES)
+            ),
         )
 
     @property

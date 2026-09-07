@@ -13,6 +13,7 @@
 """
 
 from typing import Any
+
 import numpy as np
 import pandas as pd
 
@@ -60,6 +61,10 @@ def find_comparables(
     target_type = values.get("Property Type")
     target_area_name = values.get("location_area")
     target_group_id = values.get("property_group_id")
+    valuation_date = pd.to_datetime(
+        values.get("as_of_date", values.get("valuation_date", values.get("listing_date"))),
+        errors="coerce",
+    )
 
     target_area = (
         float(values.get("Area", context.median_area))
@@ -80,33 +85,51 @@ def find_comparables(
     target_lon = float(values["Longitude"]) if pd.notna(values.get("Longitude")) else None
     target_cbd = float(values["distance_to_cbd_km"]) if pd.notna(values.get("distance_to_cbd_km")) else None
 
-    # 1. Candidate Filter: Ưu tiên cùng loại hình và cùng khu vực, LOẠI TRỪ chính căn nhà đang xét
-    candidates = [
+    # 1. Chặn future leakage trước khi tính similarity.
+    dated_candidates = [
         r
         for r in references
         if r.get("property_type") == target_type
         and (target_group_id is None or r.get("property_group_id") != target_group_id)
-        and r.get("location_area") == target_area_name
+        and (
+            pd.isna(valuation_date)
+            or (
+                pd.notna(pd.to_datetime(r.get("listing_date"), errors="coerce"))
+                and pd.to_datetime(r.get("listing_date"), errors="coerce") <= valuation_date
+            )
+        )
     ]
+
+    if pd.notna(valuation_date):
+        dated_candidates = [
+            r
+            for r in dated_candidates
+            if (valuation_date - pd.to_datetime(r.get("listing_date"), errors="coerce")).days <= 365
+        ]
+
+    area_candidates = [
+        r
+        for r in dated_candidates
+        if r.get("area") is None
+        or abs(float(r["area"]) - target_area) / max(target_area, 1.0) <= 0.25
+    ]
+    local_candidates = [
+        r for r in area_candidates if r.get("location_area") == target_area_name
+    ]
+    candidates = local_candidates if len(local_candidates) >= n_matches else area_candidates
 
     # Nếu không đủ ứng viên cùng quận, mở rộng sang cùng loại hình trên toàn TP.HCM
     if len(candidates) < n_matches:
         candidates = [
             r
-            for r in references
+            for r in dated_candidates
             if r.get("property_type") == target_type
             and (target_group_id is None or r.get("property_group_id") != target_group_id)
         ]
 
-    # Fallback cuối cùng nếu toàn bộ rỗng
+    # Không fallback về listing tương lai hoặc chính property đang định giá.
     if not candidates:
-        candidates = [
-            r for r in references
-            if (target_group_id is None or r.get("property_group_id") != target_group_id)
-        ]
-
-    if not candidates:
-        candidates = references
+        return [], {"median_price_million": None, "median_unit_price_million_m2": None}
 
     scored = []
     for c in candidates:
@@ -139,7 +162,7 @@ def find_comparables(
             cbd_dist = 0.2
 
         # e) Khoảng cách độ mới tin đăng (Recency)
-        target_date_val = values.get("as_of_date", values.get("valuation_date", values.get("listing_date")))
+        target_date_val = valuation_date
         c_date_val = c.get("listing_date")
         if (
             target_date_val is not None
@@ -151,9 +174,9 @@ def find_comparables(
             try:
                 t_dt = pd.to_datetime(target_date_val)
                 c_dt = pd.to_datetime(c_date_val)
-                days_diff = abs((t_dt - c_dt).days)
+                days_diff = max((t_dt - c_dt).days, 0)
                 recency_dist = min(days_diff / 180.0, 2.0)
-            except Exception:
+            except (TypeError, ValueError):
                 recency_dist = 0.2
         else:
             recency_dist = 0.2

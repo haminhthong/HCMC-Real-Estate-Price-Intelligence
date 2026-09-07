@@ -1,13 +1,19 @@
 """Mô-đun điều phối dịch vụ dự báo giá (Price Intelligence Serving Predictor)."""
 
+from datetime import datetime
 from typing import Any
+from zoneinfo import ZoneInfo
+
 import numpy as np
 import pandas as pd
 
 from src.artifacts.loader import load_production_model
 from src.comparables import find_comparables
-from src.features.builder import make_features
+from src.config import MISSING_INDICATOR_FEATURES
+from src.features.builder import build_features
+from src.features.context import FeatureContext
 from src.reliability.guards import check_reliability_guards
+
 from .explain import explain_top_features
 
 
@@ -36,14 +42,44 @@ def predict_one(
     if model_package is None:
         model_package = load_production_model()
 
+    area_value = values.get("Area")
+    if pd.isna(area_value) or not 5 <= float(area_value) <= 500:
+        raise ValueError(
+            "UNSUPPORTED_MARKET_SCOPE: Area phải nằm trong phạm vi hỗ trợ 5–500 m²."
+        )
+
     reference_date = model_package.get("reference_date")
     as_of_date = values.get("as_of_date", values.get("valuation_date"))
-    
-    row = pd.DataFrame([values])
-    if as_of_date is not None:
-        row["as_of_date"] = as_of_date
+    if as_of_date is None or pd.isna(as_of_date):
+        as_of_date = datetime.now(ZoneInfo("Asia/Ho_Chi_Minh")).date().isoformat()
+    as_of_timestamp = pd.to_datetime(as_of_date, errors="coerce")
+    if pd.isna(as_of_timestamp):
+        raise ValueError("as_of_date phải là ngày hợp lệ theo ISO format.")
+    as_of_date = as_of_timestamp.date().isoformat()
+    reference_timestamp = pd.to_datetime(reference_date, errors="coerce")
+    market_age_days = (
+        int((as_of_timestamp - reference_timestamp).days)
+        if pd.notna(reference_timestamp)
+        else None
+    )
 
-    feature_frame = make_features(row, reference_date=reference_date)
+    row = pd.DataFrame([values])
+    row["as_of_date"] = as_of_date
+
+    context_data = model_package.get("feature_context")
+    if context_data:
+        feature_context = FeatureContext.from_dict(context_data)
+    else:
+        package_features = set(model_package.get("features", []))
+        feature_context = FeatureContext(
+            reference_date=reference_date or as_of_date,
+            missing_indicator_features=(
+                list(MISSING_INDICATOR_FEATURES)
+                if package_features.intersection(MISSING_INDICATOR_FEATURES)
+                else []
+            ),
+        )
+    feature_frame = build_features(row, context=feature_context)
 
     input_completeness = float(
         feature_frame.iloc[0].get(
@@ -52,11 +88,7 @@ def predict_one(
         )
     )
     target_formulation = model_package.get("target_formulation", "total_price")
-    area_val = (
-        float(values.get("Area", 1.0))
-        if pd.notna(values.get("Area")) and float(values.get("Area")) > 0
-        else 1.0
-    )
+    area_val = float(area_value)
 
     raw_pred = float(model_package["pipeline"].predict(feature_frame)[0])
     if target_formulation == "price_per_m2":
@@ -89,12 +121,17 @@ def predict_one(
     # 4. Tra cứu đơn giá trung vị cùng phân khúc
     property_type = values.get("Property Type")
     location_area = values.get("location_area")
-    segment_unit_price = model_package.get("segment_unit_prices", {}).get(
-        (property_type, location_area)
-    )
+    segment_prices = model_package.get("segment_unit_prices", {})
+    segment_unit_price = segment_prices.get((property_type, location_area))
+    if segment_unit_price is None:
+        segment_unit_price = segment_prices.get(f"{property_type} | {location_area}")
 
     # 5. Tìm kiếm bất động sản tương đồng (Comparable Properties Engine)
-    comparables, comp_summary = find_comparables(model_package, values, n_matches=4)
+    comparable_values = dict(values)
+    comparable_values["as_of_date"] = as_of_date
+    comparables, comp_summary = find_comparables(
+        model_package, comparable_values, n_matches=4
+    )
 
     # 6. Tính SHAP nếu được yêu cầu
     should_explain = include_explanation or values.get("include_explanation", False)
@@ -148,6 +185,10 @@ def predict_one(
             "version": model_package["version"],
             "model_type": model_package.get("model_type", "ExtraTreesRegressor"),
             "target_formulation": target_formulation,
+            "model_status": model_package.get("model_status", "production_ready"),
+            "valuation_as_of": as_of_date,
+            "model_market_reference": reference_date,
+            "market_age_days": market_age_days,
         },
         # Các trường phẳng tương thích ngược (Flat aliases)
         "predicted_price_million": round(predicted_price, 1),
@@ -156,6 +197,10 @@ def predict_one(
         "confidence": reliability_level,
         "reliability_level": reliability_level,
         "model_version": model_package["version"],
+        "model_status": model_package.get("model_status", "production_ready"),
+        "valuation_as_of": as_of_date,
+        "model_market_reference": reference_date,
+        "market_age_days": market_age_days,
         "warnings": warnings,
         "data_quality_score": round(input_completeness, 1),
         "input_completeness_score": round(input_completeness, 1),

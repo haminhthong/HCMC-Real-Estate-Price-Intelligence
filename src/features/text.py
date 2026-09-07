@@ -1,6 +1,7 @@
 """Mô-đun trích xuất cờ tiện ích (Binary Text Flags) từ tiêu đề và mô tả tin rao."""
 
 import re
+
 import pandas as pd
 
 KEYWORDS: dict[str, list[str]] = {
@@ -18,8 +19,9 @@ NEGATION_PATTERN: str = r"(?:không|chưa|chẳng|ko|chua|khong)\s+(?:có\s+|đ�
 def add_text_flags(df: pd.DataFrame) -> pd.DataFrame:
     """Trích xuất các cờ nhị phân (0 hoặc 1) có xử lý từ phủ định.
 
-    Nếu người dùng đã chủ động truyền cờ trong dữ liệu đầu vào (ví dụ form API),
-    sẽ ưu tiên giữ giá trị đó.
+    Khi có Title/Description, cờ luôn được suy ra từ cùng một extractor dùng ở
+    training. Giá trị cờ gửi trực tiếp chỉ là fallback tương thích cho payload
+    cũ không có văn bản.
     """
     out = df.copy()
     title = out["Title"] if "Title" in out else pd.Series("", index=out.index)
@@ -34,6 +36,7 @@ def add_text_flags(df: pd.DataFrame) -> pd.DataFrame:
         + " "
         + description.fillna("").astype(str)
     ).str.lower()
+    has_text = raw_text.str.strip().ne("")
 
     for flag, keywords in KEYWORDS.items():
         kw_pattern = "|".join(re.escape(k) for k in keywords)
@@ -44,9 +47,14 @@ def add_text_flags(df: pd.DataFrame) -> pd.DataFrame:
         extracted = sanitized_text.str.contains(kw_pattern, regex=True).astype(int)
 
         if flag in out:
+            # Chỉ dùng cờ gửi sẵn cho đúng những dòng không có văn bản.
+            # Không dùng has_text.any() vì một dòng có text không được làm
+            # mất giá trị fallback của các dòng khác trong cùng batch.
             supplied = pd.to_numeric(out[flag], errors="coerce")
-            out[flag] = supplied.where(supplied.notna(), extracted).clip(0, 1).astype(int)
+            out[flag] = extracted.where(has_text | supplied.isna(), supplied)
         else:
             out[flag] = extracted
+
+        out[flag] = out[flag].fillna(0).clip(0, 1).astype(int)
 
     return out

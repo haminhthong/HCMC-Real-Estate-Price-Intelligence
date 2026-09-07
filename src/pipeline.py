@@ -18,12 +18,10 @@ Quy trình chuẩn hóa 12 bước:
 import argparse
 from pathlib import Path
 from typing import Any
-import pandas as pd
 
 from src.artifacts.loader import clear_model_cache
 from src.artifacts.schema import (
     evaluate_development_gate,
-    evaluate_promotion,
     evaluate_release_gate,
 )
 from src.artifacts.writer import save_model_artifacts
@@ -132,22 +130,36 @@ def run_pipeline(
     champion_metrics = evaluation_result["champion_metrics"]
     int_metrics = evaluation_result["interval_metrics"]
 
+    # Development Gate chỉ được đọc metrics của champion trên Validation.
+    # Không dùng fallback số cứng vì nó có thể che giấu lỗi selection.
     dev_gate = evaluate_development_gate(
         champion_val_mae=selection_result["best_val_mae"],
         naive_val_mae=selection_result["naive_val_mae"],
-        val_wape=float(selection_result.get("best_candidate_metrics", {}).get("wape_percent", 40.0)),
+        val_wape=float(selection_result["selected_validation_metrics"]["wape_percent"]),
     )
     rel_gate = evaluate_release_gate(
         test_wape=float(champion_metrics["wape_percent"]),
         test_coverage=float(int_metrics["actual_coverage"]),
         relative_interval_width=float(int_metrics["relative_interval_width"]),
     )
-    promotion_result = evaluate_promotion(
-        champion_val_mae=selection_result["best_val_mae"],
-        naive_val_mae=selection_result["naive_val_mae"],
-        val_wape=float(champion_metrics["wape_percent"]),
-        actual_coverage=float(int_metrics["actual_coverage"]),
-    )
+    # Development và Release là hai quyết định độc lập.
+    # Test chỉ đi vào Release Gate, không bị truyền ngược thành Validation WAPE.
+    promotion_result = {
+        "selection_status": "champion" if dev_gate["champion_approved"] else "research_candidate",
+        "production_readiness": rel_gate["readiness_status"],
+        "deployment_approved": bool(rel_gate["production_ready"]),
+        "promotion_status": {
+            "model_selected": True,
+            "beats_baseline": dev_gate["beats_baseline"],
+            "baseline_improvement_percent": dev_gate["baseline_improvement_percent"],
+            "wape_acceptable": dev_gate["val_wape_acceptable"],
+            "interval_calibrated": rel_gate["interval_coverage_acceptable"],
+            "production_ready": rel_gate["production_ready"],
+        },
+        "development_gate": dev_gate,
+        "release_gate": rel_gate,
+        "promotion_reason": rel_gate["gate_reason"],
+    }
     logger.info("%s", dev_gate["gate_reason"])
     logger.info("%s", rel_gate["gate_reason"])
 
@@ -155,13 +167,17 @@ def run_pipeline(
     from src.comparables import ComparableContext, evaluate_comparables_on_validation
     ref_df = refit_result["df_train_dev"].copy()
     ref_df["distance_to_cbd_km"] = refit_result["features_train_dev"]["distance_to_cbd_km"].to_numpy()
+    # Benchmark dùng context Train-only. Serving sau khi development hoàn tất
+    # được phép dùng reference Train+Validation, nhưng không dùng context đó
+    # để benchmark ngược lại.
+    benchmark_context = ComparableContext.fit(df_train)
     comparable_context = ComparableContext.fit(ref_df)
 
     # Đánh giá ngoại suy định giá của Comparable Engine trên Validation set (Train comps ONLY)
     comp_eval_result = evaluate_comparables_on_validation(
         df_train=df_train,
         df_val=df_val,
-        context=comparable_context,
+        context=benchmark_context,
         n_matches=4,
     )
     logger.info("Comparable Engine Validation Benchmark: %s", comp_eval_result["summary"])

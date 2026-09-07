@@ -10,6 +10,7 @@ Thay thế cho khái niệm OOD Detector thống kê giả định bằng một 
 """
 
 from typing import Any
+
 import numpy as np
 import pandas as pd
 
@@ -114,6 +115,17 @@ def check_reliability_guards(
             f"{offset_days:+.0f} ngày so với chu kỳ huấn luyện; biến động vĩ mô thị trường có thể làm sai lệch giá."
         )
 
+    # Tuổi thị trường được tính theo ngày định giá thực tế, không phải ngày
+    # mặc định của feature vector. Đây là cảnh báo riêng cho model stale.
+    reference_date = pd.to_datetime(model_package.get("reference_date"), errors="coerce")
+    valuation_date = pd.to_datetime(as_of_date, errors="coerce")
+    if pd.notna(reference_date) and pd.notna(valuation_date):
+        market_age_days = int((valuation_date - reference_date).days)
+        if market_age_days > 180:
+            warnings.append(
+                f"STALE_MARKET_MODEL: Model tham chiếu đã cách ngày định giá {market_age_days} ngày (>180 ngày)."
+            )
+
     # 6. Phân rã rủi ro khoảng Conformal Interval và xếp hạng độ tin cậy
     relative_width = (upper_bound - lower_bound) / max(predicted_price, 1.0)
     interval_risk = (
@@ -122,7 +134,11 @@ def check_reliability_guards(
         else ("moderate" if relative_width > 0.4 else "tight")
     )
     # Hỗ trợ cả 'warning' và 'warning_ood' để giữ tính tương thích ngược với các assertion test cũ
-    domain_support = "warning_ood" if any("CẢNH BÁO" in w for w in warnings) else "in_domain"
+    has_domain_warning = any(
+        "CẢNH BÁO" in warning or warning.startswith("STALE_")
+        for warning in warnings
+    )
+    domain_support = "warning_ood" if has_domain_warning else "in_domain"
 
     if domain_support == "warning_ood" or interval_risk == "wide_interval" or input_completeness_score < 60.0:
         reliability_level = "low"

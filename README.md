@@ -1,4 +1,106 @@
-# HCMC Residential Listing Price Intelligence Platform 🏠
+# HCMC Real Estate Price Intelligence
+
+> **Tài liệu hiện hành.** Các số liệu và mô tả trong những phần cũ bên dưới là
+> snapshot nghiên cứu trước đó; contract và luồng code hiện tại được chốt ở
+> phần này.
+
+Hệ thống ước lượng **giá niêm yết tham khảo** cho bất động sản nhà ở tại
+TP.HCM. Kết quả không phải giá giao dịch, thẩm định giá pháp lý hay khuyến
+nghị đầu tư.
+
+## Contract hiện hành
+
+- Diện tích hỗ trợ: **5–500 m²**; giá mục tiêu: **100–50.000 triệu VND**.
+- Target canonical: `log1p(Price)` trên tổng giá niêm yết.
+- Ngày thiếu không được gán ngày crawl giả. Dùng `listing_date`, hoặc
+  `Scraped At` với `date_source=scrape_time_proxy`; nếu cả hai thiếu thì
+  `temporal_status=unknown` và không đưa vào temporal benchmark.
+- `property_group_id` là identity của căn nhà; `listing_event_id` là từng lần
+  rao. Các lần đăng lại khác ngày/giá được giữ lại.
+- Request không bắt buộc `Bedrooms`, vì missingness là một phần của contract.
+
+## Luồng code hiện tại
+
+```text
+raw snapshot
+  -> schema + market-scope validation
+  -> date/provenance normalization
+  -> strong/medium identity matching
+  -> weak duplicate audit, không tự union
+  -> listing-event deduplication
+  -> grouped temporal split 60/15/10/15
+  -> Train-only FeatureContext
+  -> naive/Ridge/regularized ExtraTrees selection
+  -> log-price refit
+  -> split-conformal calibration
+  -> locked Test evaluation
+  -> Development Gate + Release Gate độc lập
+  -> immutable candidate artifact
+  -> chỉ promote production khi Release Gate đạt
+```
+
+`src/data/split.py` cũng cung cấp `split_canonical_temporal_purged()` cho
+Development/Calibration/Locked Future Test 70/10/20. Hàm này purge property
+đã xuất hiện ở block trước khỏi block sau; ngày unknown bị loại khỏi benchmark.
+
+## Identity và anti-leakage
+
+`src/data/identity.py` dùng ba mức bảo thủ:
+
+1. `strong`: cùng source/listing id, hoặc cùng địa chỉ chuẩn hóa, loại hình,
+   diện tích lệch tối đa 3% và không mâu thuẫn GPS/kết cấu.
+2. `medium`: không GPS nhưng cùng area/ward/street, loại hình, diện tích lệch
+   tối đa 5% và kết cấu tương thích.
+3. `weak`: chỉ ghi `possible_duplicate=true`; không tự động gộp.
+
+Giá, ngày đăng và môi giới không được dùng để tạo identity vật lý. Đây là nền
+tảng của group-isolated split.
+
+## Feature, model và evidence
+
+- Feature builder dùng chung cho training/serving, gồm kết cấu, địa lý, text
+  flags có xử lý phủ định và 8 missingness indicators.
+- `FeatureContext` lưu danh sách cột, `reference_date` và schema version.
+- ExtraTrees được regularize với `min_samples_leaf=5`, `max_features=0.8`.
+- Conformal interval dùng residual toàn cục trên log-space; không thu hẹp
+  khoảng chỉ để giao diện đẹp.
+- Comparable là evidence, không phải estimator: loại trừ cùng property, chỉ
+  dùng listing quá khứ, lookback tối đa 365 ngày và area ưu tiên trong ±25%.
+- Comparable benchmark fit context từ Train-only; serving context sau refit
+  được fit trên Train+Validation.
+
+## Serving và release governance
+
+API gồm `GET /health`, `GET /model-info`, `POST /predict`, `POST /explain` và
+`GET /market/districts`. Server luôn tự resolve `as_of_date` theo múi giờ
+TP.HCM khi request không truyền ngày. Response ghi `valuation_as_of`,
+`model_market_reference`, `market_age_days`, `model_status` và cảnh báo
+`STALE_MARKET_MODEL` khi model cũ hơn 180 ngày.
+
+Writer không ghi đè version đã tồn tại. Candidate mới được lưu vào
+`models/candidate.json`; `models/production.json` chỉ được cập nhật khi
+Release Gate đạt. Loader đọc đúng active bundle, kiểm tra checksum và
+fail-closed; không âm thầm fallback sang legacy joblib.
+
+## Chạy dự án
+
+```powershell
+pip install -r requirements-dev.txt
+python -m src.pipeline train --version 1.3.0
+uvicorn api.main:app --reload --port 8000
+streamlit run app/streamlit_app.py
+python -m pytest -q
+```
+
+Phạm vi source chính: `src/data`, `src/features`, `src/modeling`,
+`src/calibration`, `src/comparables`, `src/reliability`, `src/serving`,
+`src/artifacts`, `api` và `tests`. Xem các module tương ứng để biết schema
+chi tiết; không dùng các metric snapshot cũ bên dưới làm contract mới.
+
+---
+
+## Tài liệu snapshot cũ
+
 
 ![Python](https://img.shields.io/badge/Python-3.11%2B-blue?logo=python)
 ![FastAPI](https://img.shields.io/badge/FastAPI-0.115-009688?logo=fastapi)

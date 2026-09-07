@@ -8,16 +8,16 @@
 """
 
 from typing import Any, Literal
-import numpy as np
 
+import numpy as np
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from src.artifacts.loader import load_production_model as load_model
 from src.config import (
-    MODEL_PATH,
     MODEL_VERSION,
     RESIDENTIAL_TYPES,
+    ROOT_DIR,
     SUPPORTED_AREAS,
     logger,
 )
@@ -54,13 +54,13 @@ class PredictionRequest(BaseModel):
     area: float = Field(
         ...,
         gt=0,
-        le=2000,
+        le=500,
         alias="Area",
         description="Diện tích đất/sử dụng (m²)",
         examples=[80.0],
     )
-    bedrooms: int = Field(
-        ...,
+    bedrooms: int | None = Field(
+        default=None,
         ge=1,
         le=10,
         alias="Bedrooms",
@@ -135,11 +135,13 @@ class PredictionRequest(BaseModel):
         description="Vị trí nhà (Trong hẻm, Đường chính, ...)",
         examples=["Trong hẻm"],
     )
-    has_furniture: bool = Field(default=False, description="Cờ tiện ích: Đã có nội thất")
-    car_alley: bool = Field(default=False, description="Cờ tiện ích: Hẻm xe hơi / ô tô vào được")
-    near_market: bool = Field(default=False, description="Cờ tiện ích: Gần chợ / siêu thị")
-    near_school: bool = Field(default=False, description="Cờ tiện ích: Gần trường học / đại học")
-    is_urgent_sale: bool = Field(default=False, description="Cờ tiện ích: Chính chủ cần bán gấp")
+    title: str | None = Field(default=None, alias="Title", description="Tiêu đề tin đăng")
+    description: str | None = Field(default=None, alias="Description", description="Mô tả tin đăng")
+    has_furniture: bool | None = Field(default=None, description="Tương thích cũ; ưu tiên suy ra từ Description")
+    car_alley: bool | None = Field(default=None, description="Tương thích cũ; ưu tiên suy ra từ Description")
+    near_market: bool | None = Field(default=None, description="Tương thích cũ; ưu tiên suy ra từ Description")
+    near_school: bool | None = Field(default=None, description="Tương thích cũ; ưu tiên suy ra từ Description")
+    is_urgent_sale: bool | None = Field(default=None, description="Tương thích cũ; ưu tiên suy ra từ Description")
     as_of_date: str | None = Field(
         default=None,
         description="Thời điểm định giá tham chiếu (ISO format YYYY-MM-DD; mặc định là ngày hiện tại)",
@@ -265,6 +267,10 @@ class PredictionResponse(BaseModel):
         description="Chỉ báo độ tin cậy chuẩn hóa",
     )
     model_version: str = Field(..., description="Phiên bản mô hình đang phục vụ")
+    model_status: str = Field(default="production_ready", description="Trạng thái governance của model")
+    valuation_as_of: str | None = Field(default=None, description="Ngày định giá thực tế")
+    model_market_reference: str | None = Field(default=None, description="Mốc dữ liệu cuối của model")
+    market_age_days: int | None = Field(default=None, description="Số ngày model lệch so với ngày định giá")
     warnings: list[str] = Field(default_factory=list, description="Danh sách các cảnh báo")
     data_quality_score: float = Field(..., ge=0, le=100, description="Điểm hoàn thiện dữ liệu (0-100%)")
     input_completeness_score: float = Field(
@@ -286,7 +292,7 @@ class PredictionResponse(BaseModel):
 @app.get("/health", summary="Kiểm tra sức khỏe dịch vụ API", tags=["System"])
 def health() -> dict[str, Any]:
     """Trả về trạng thái hoạt động của server và sự tồn tại của file mô hình."""
-    model_loaded = MODEL_PATH.exists()
+    model_loaded = (ROOT_DIR / "models" / "production.json").exists()
     return {
         "status": "ok",
         "model_loaded": model_loaded,
@@ -322,7 +328,12 @@ def predict(request: PredictionRequest) -> dict[str, Any]:
         payload = request.model_dump(by_alias=True)
         include_explanation = payload.pop("include_explanation", False)
         return predict_one(payload, include_explanation=include_explanation)
-    except (FileNotFoundError, ValueError, RuntimeError) as exc:
+    except ValueError as exc:
+        if str(exc).startswith("UNSUPPORTED_MARKET_SCOPE"):
+            raise HTTPException(status_code=422, detail=str(exc)) from exc
+        logger.error("Lỗi dữ liệu đầu vào khi xử lý dự báo giá: %s", exc)
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
+    except (FileNotFoundError, RuntimeError) as exc:
         logger.error("Lỗi khi xử lý dự báo giá: %s", exc)
         raise HTTPException(status_code=503, detail=str(exc)) from exc
 
@@ -367,4 +378,3 @@ def get_market_districts() -> dict[str, Any]:
     except Exception as exc:
         logger.error("Lỗi khi lấy thông tin phân tích thị trường: %s", exc)
         raise HTTPException(status_code=503, detail=str(exc)) from exc
-

@@ -6,16 +6,26 @@ import pandas as pd
 
 
 def summarize_slice(df_group: pd.DataFrame) -> dict[str, Any]:
-    """Tổng hợp các chỉ số trung bình, trung vị và độ bao phủ cho một nhóm con."""
+    """Tổng hợp các chỉ số trung bình, trung vị, WAPE và chất lượng khoảng Conformal theo lát cắt."""
     count = len(df_group)
     if count == 0:
         return {"count": 0, "note": "Không có mẫu"}
+
+    total_actual = float(df_group["Price"].sum())
+    total_abs_err = float(df_group["absolute_error_million"].sum())
+    wape = round(total_abs_err / max(total_actual, 1.0) * 100.0, 2)
+
+    rel_widths = df_group["interval_width_million"] / df_group["Price"].clip(lower=100.0)
+
     return {
         "count": count,
         "mean_mae_million": round(float(df_group["absolute_error_million"].mean()), 2),
         "median_mae_million": round(float(df_group["absolute_error_million"].median()), 2),
+        "wape_percent": wape,
         "interval_coverage": round(float(df_group["in_interval"].mean()), 4),
+        "mean_interval_width_million": round(float(df_group["interval_width_million"].mean()), 2),
         "median_interval_width_million": round(float(df_group["interval_width_million"].median()), 2),
+        "median_relative_interval_width": round(float(rel_widths.median()), 3),
     }
 
 
@@ -29,11 +39,11 @@ def analyze_slices(
 ) -> dict[str, Any]:
     """Phân tích hiệu năng khoảng dự báo và sai số theo 5 chiều lát cắt:
 
-    1. Theo Loại hình bất động sản
+    1. Theo Loại hình bất động sản (Apartment, House, Villa...)
     2. Theo Quận / huyện (location_area)
-    3. Theo Tầm giá (price_range)
-    4. Theo Điểm hoàn thiện dữ liệu (completeness_range)
-    5. Theo Khoảng cách tới trung tâm CBD (cbd_distance_range)
+    3. Theo Tầm giá chuẩn hóa (< 5 tỷ, 5 - 10 tỷ, 10 - 15 tỷ, > 15 tỷ)
+    4. Theo Điểm hoàn thiện dữ liệu (< 60%, 60 - 80%, >= 80%)
+    5. Theo Khoảng cách tới trung tâm CBD (< 5 km, 5 - 10 km, > 10 km)
     """
     test_result = df_test[["Property Type", "location_area", "Price"]].copy()
     test_result["predicted_price_million"] = test_pred_price
@@ -43,6 +53,8 @@ def analyze_slices(
 
     if "input_completeness_score" in features_test:
         test_result["input_completeness_score"] = features_test["input_completeness_score"].to_numpy()
+    elif "data_quality_score" in features_test:
+        test_result["input_completeness_score"] = features_test["data_quality_score"].to_numpy()
     else:
         test_result["input_completeness_score"] = 100.0
 
@@ -51,8 +63,9 @@ def analyze_slices(
     else:
         test_result["distance_to_cbd_km"] = 10.0
 
-    price_bins = [0, 3000, 7000, 15000, np.inf]
-    price_labels = ["< 3 tỷ", "3 - 7 tỷ", "7 - 15 tỷ", "> 15 tỷ"]
+    # Phân vị tầm giá theo đề xuất chuẩn: < 5B, 5 - 10B, 10 - 15B, > 15B
+    price_bins = [0, 5000, 10000, 15000, np.inf]
+    price_labels = ["< 5 tỷ", "5 - 10 tỷ", "10 - 15 tỷ", "> 15 tỷ"]
     test_result["price_range"] = pd.cut(test_result["Price"], bins=price_bins, labels=price_labels)
 
     completeness_bins = [0, 60, 80, 100.1]

@@ -5,10 +5,10 @@ import numpy as np
 import pandas as pd
 
 from src.artifacts.loader import load_production_model
+from src.comparables import find_comparables
 from src.features.builder import make_features
-from .comparables import find_comparables
+from src.reliability.guards import check_reliability_guards
 from .explain import explain_top_features
-from .ood import check_ood_guards
 
 
 def predict_one(
@@ -18,17 +18,15 @@ def predict_one(
 ) -> dict[str, Any]:
     """Dự báo giá cho một bất động sản và trả về gói Price Intelligence Response hoàn chỉnh.
 
-    Quy trình 7 bước Serving:
-    1. Tải gói mô hình hoạt động (Active Version từ production.json hoặc LRU cache).
-    2. Shared Feature Engineering với reference_date cố định từ tập Train/Dev.
-    3. Dự báo điểm trung tâm (point estimate) và quy đổi từ log-scale.
-    4. Xác định khoảng dự báo Conformal Prediction (Prediction Interval 80%) không phụ thuộc phân phối.
-    5. Kiểm tra cảnh báo Out-Of-Distribution (OOD) bằng phân vị robust P01–P99 và cảnh báo phân khúc hạng sang.
-    6. Đánh giá độ tin cậy phân rã (Decomposed Reliability: Overall, Data Completeness, Domain Support, Interval Risk).
-    7. Trích xuất top 5 đặc trưng SHAP (nếu yêu cầu) và tra cứu bất động sản tương đồng (Comparable Properties).
+    CẤU TRÚC 5 TRỤ CỘT CHUẨN MỰC:
+    1. VALUATION: Ước lượng giá điểm (Point Listing-Price Estimate).
+    2. UNCERTAINTY: Khoảng dự báo Conformal Interval (Coverage 80%).
+    3. MARKET CONTEXT: Trung vị đơn giá phân khúc và trung vị các căn tương đồng.
+    4. COMPARABLES: Danh sách các bất động sản tương đồng tham chiếu Top-K.
+    5. RELIABILITY: Đánh giá độ tin cậy, rào chắn miền dữ liệu, rủi ro khoảng và điểm hoàn thiện.
 
     Args:
-        values: Dictionary chứa các thuộc tính của bất động sản.
+        values: Dictionary chứa các thuộc tính của bất động sản (có thể có as_of_date hoặc valuation_date).
         include_explanation: Cờ yêu cầu tính toán SHAP values.
         model_package: Tùy chọn gói mô hình đã tải sẵn (nếu có).
 
@@ -39,10 +37,15 @@ def predict_one(
         model_package = load_production_model()
 
     reference_date = model_package.get("reference_date")
+    as_of_date = values.get("as_of_date", values.get("valuation_date"))
+    
     row = pd.DataFrame([values])
+    if as_of_date is not None:
+        row["as_of_date"] = as_of_date
+
     feature_frame = make_features(row, reference_date=reference_date)
 
-    data_quality_score = float(
+    input_completeness = float(
         feature_frame.iloc[0].get(
             "input_completeness_score",
             feature_frame.iloc[0].get("data_quality_score", 100.0),
@@ -61,7 +64,7 @@ def predict_one(
     else:
         predicted_price = max(float(np.expm1(raw_pred)), 0.0)
 
-    # 4. Xác định khoảng dự báo Conformal Prediction (Prediction Interval)
+    # 2. Xác định khoảng dự báo Conformal Prediction (Prediction Interval)
     error_quantile = float(model_package.get("residual_log_quantile", 0.25))
     target_coverage = float(model_package.get("target_coverage", 0.8))
     if target_formulation == "price_per_m2":
@@ -71,28 +74,29 @@ def predict_one(
         lower_bound = max(float(np.expm1(raw_pred - error_quantile)), 0.0)
         upper_bound = float(np.expm1(raw_pred + error_quantile))
 
-    # 5 & 6. Kiểm tra cảnh báo OOD và độ tin cậy phân rã
-    warnings, domain_support, interval_risk, reliability_level = check_ood_guards(
+    # 3. Kiểm tra rào chắn miền và phân rã độ tin cậy
+    warnings, domain_support, interval_risk, reliability_level = check_reliability_guards(
         feature_frame=feature_frame,
         values=values,
         model_package=model_package,
         predicted_price=predicted_price,
         lower_bound=lower_bound,
         upper_bound=upper_bound,
-        data_quality_score=data_quality_score,
+        input_completeness_score=input_completeness,
+        as_of_date=as_of_date,
     )
 
-    # Tra cứu đơn giá trung vị cùng phân khúc
+    # 4. Tra cứu đơn giá trung vị cùng phân khúc
     property_type = values.get("Property Type")
     location_area = values.get("location_area")
     segment_unit_price = model_package.get("segment_unit_prices", {}).get(
         (property_type, location_area)
     )
 
-    # Tìm kiếm bất động sản tương đồng (Comparable Properties Engine)
+    # 5. Tìm kiếm bất động sản tương đồng (Comparable Properties Engine)
     comparables, comp_summary = find_comparables(model_package, values, n_matches=4)
 
-    # Tính SHAP nếu được yêu cầu
+    # 6. Tính SHAP nếu được yêu cầu
     should_explain = include_explanation or values.get("include_explanation", False)
     contributions = (
         explain_top_features(model_package, feature_frame)
@@ -101,7 +105,7 @@ def predict_one(
     )
 
     return {
-        # Cấu trúc phân tầng tiêu chuẩn
+        # Cấu trúc phân tầng tiêu chuẩn 5 trụ cột
         "valuation": {
             "point_estimate_million": round(predicted_price, 1),
             "prediction_interval": {
@@ -109,6 +113,13 @@ def predict_one(
                 "upper_bound_million": round(upper_bound, 1),
                 "target_coverage": target_coverage,
             },
+        },
+        "uncertainty": {
+            "target_coverage": target_coverage,
+            "lower_bound_million": round(lower_bound, 1),
+            "upper_bound_million": round(upper_bound, 1),
+            "interval_width_million": round(upper_bound - lower_bound, 1),
+            "relative_interval_width": round((upper_bound - lower_bound) / max(predicted_price, 1.0), 3),
         },
         "market_context": {
             "segment_median_unit_price_million_m2": (
@@ -122,7 +133,7 @@ def predict_one(
         "reliability": {
             "overall": reliability_level,
             "reliability_level": reliability_level,
-            "input_completeness_score": round(data_quality_score, 1),
+            "input_completeness_score": round(input_completeness, 1),
             "domain_support": domain_support,
             "interval_risk": interval_risk,
             "warnings": warnings,
@@ -146,8 +157,8 @@ def predict_one(
         "reliability_level": reliability_level,
         "model_version": model_package["version"],
         "warnings": warnings,
-        "data_quality_score": round(data_quality_score, 1),
-        "input_completeness_score": round(data_quality_score, 1),
+        "data_quality_score": round(input_completeness, 1),
+        "input_completeness_score": round(input_completeness, 1),
         "top_contributions": contributions,
         "segment_median_unit_price_million_m2": (
             round(float(segment_unit_price), 1)

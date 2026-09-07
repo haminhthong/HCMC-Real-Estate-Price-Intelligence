@@ -1,7 +1,8 @@
-"""Mô-đun tương thích ngược cho huấn luyện mô hình.
+"""[DEPRECATED LEGACY WRAPPER] Mô-đun tương thích ngược cho huấn luyện mô hình.
 
-Ủy nhiệm sang Master Pipeline trong `src.pipeline` và tái xuất khẩu các hàm
-cốt lõi để phục vụ các bài test hiện hành mà không gây phá vỡ tương thích.
+LƯU Ý KIẾN TRÚC:
+Toàn bộ quy trình huấn luyện và điều phối pipeline chính thức được quản lý bởi `src.pipeline`.
+Tệp này chỉ được duy trì làm proxy chuyển tiếp cho các lệnh `python -m src.train` cũ.
 """
 
 from typing import Any

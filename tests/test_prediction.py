@@ -5,8 +5,9 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from src.predict import load_model, predict_one
-from src.train import conformal_quantile
+from src.artifacts.loader import load_production_model as load_model
+from src.calibration.conformal import conformal_quantile
+from src.serving.predictor import predict_one
 
 
 def test_conformal_quantile_is_conservative():
@@ -184,7 +185,7 @@ def test_comparable_engine_returns_valid_matches():
 
 def test_days_from_reference_no_negative_collapse():
     """P0 TEST: Đảm bảo listing_date mới hơn mốc tham chiếu không bị collapse về 0."""
-    from src.feature_engineering import make_features
+    from src.features.builder import make_features
     ref_date = pd.Timestamp("2025-01-01")
     # Tin đăng mới hơn 100 ngày
     future_listing = pd.DataFrame([{"listing_date": pd.Timestamp("2025-04-11")}])
@@ -195,7 +196,7 @@ def test_days_from_reference_no_negative_collapse():
 
 def test_text_flag_negation_handling():
     """P1 TEST: Kiểm tra xử lý từ phủ định cho các cờ nhị phân."""
-    from src.feature_engineering import make_features
+    from src.features.builder import make_features
     # Nhà không có nội thất
     row_no_furniture = pd.DataFrame([{"Title": "Nhà đẹp", "Description": "nhà trống không có nội thất, hẻm ô tô"}])
     feats_no = make_features(row_no_furniture)

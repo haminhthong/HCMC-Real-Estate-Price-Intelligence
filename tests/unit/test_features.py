@@ -34,3 +34,32 @@ def test_feature_context_serialization():
     restored = FeatureContext.from_dict(d)
     assert restored.reference_date == ctx.reference_date
     assert restored.cbd_latitude == ctx.cbd_latitude
+
+
+def test_as_of_date_and_missing_indicators():
+    from src.features.builder import build_features
+    from src.config import MISSING_INDICATOR_FEATURES
+
+    ctx = FeatureContext(
+        reference_date="2025-01-01T00:00:00",
+        missing_indicator_features=list(MISSING_INDICATOR_FEATURES),
+    )
+    df = pd.DataFrame(
+        [
+            {
+                "Property Type": "Nhà riêng",
+                "location_area": "Quận 1",
+                "Area": 80.0,
+                # Missing bedrooms, bathrooms, width, length, GPS
+                "as_of_date": "2025-04-11T00:00:00",
+            }
+        ]
+    )
+    feats = build_features(df, context=ctx)
+    assert feats["days_from_train_reference"].iloc[0] == 100.0
+    assert feats["gps_missing"].iloc[0] == 1
+    assert feats["width_missing"].iloc[0] == 1
+    assert feats["length_missing"].iloc[0] == 1
+    assert feats["bedrooms_missing"].iloc[0] == 1
+    assert feats["bathrooms_missing"].iloc[0] == 1
+

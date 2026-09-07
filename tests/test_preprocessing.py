@@ -1,13 +1,10 @@
 import numpy as np
 import pandas as pd
 
-from src.data_processing import (
-    _make_property_group_id,
-    clean_data,
-    make_property_signature,
-)
-from src.feature_engineering import make_features
-from src.train import build_pipeline
+from src.data.cleaning import clean_data
+from src.data.identity import make_property_signature
+from src.features.builder import make_features
+from src.modeling.pipelines import build_pipeline
 
 
 def sample_df():
@@ -113,7 +110,7 @@ def test_property_group_size_max_greater_than_one():
     repost = frame.copy()
     repost["Listing ID"] = 12345
     concat_df = pd.concat([frame, repost], ignore_index=True)
-    concat_df["property_group_id"] = _make_property_group_id(concat_df)
+    concat_df["property_group_id"] = make_property_signature(concat_df)
     assert concat_df.groupby("property_group_id").size().max() > 1
 
 

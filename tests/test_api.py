@@ -122,7 +122,19 @@ def test_real_prediction_returns_nested_and_comparables():
     data = response.json()
     assert "valuation" in data and data["valuation"] is not None
     assert "prediction_interval" in data["valuation"]
+    assert "uncertainty" in data and data["uncertainty"] is not None
     assert "market_context" in data and data["market_context"] is not None
     assert "reliability" in data and data["reliability"] is not None
     assert "comparables" in data
     assert len(data["comparables"]) >= 1
+
+
+def test_market_districts_endpoint():
+    response = client.get("/market/districts")
+    assert response.status_code == 200
+    data = response.json()
+    assert "total_supported_districts" in data
+    assert "districts" in data
+    assert "Quận 1" in data["districts"]
+    assert data["districts"]["Quận 1"]["supported"] is True
+

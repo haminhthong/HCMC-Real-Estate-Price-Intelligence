@@ -1,6 +1,6 @@
 import pandas as pd
 
-from src.train import split_group_indices
+from src.data.split import split_group_indices
 
 
 def test_train_validation_calibration_test_property_groups_do_not_overlap():
@@ -49,3 +49,26 @@ def test_grouped_temporal_split_prioritizes_group_isolation_over_strict_row_date
     multi_indices = frame.index[frame["property_group_id"] == "group-multi-listing"].to_numpy()
     assert set(multi_indices).issubset(set(test)), "Mọi tin đăng của nhóm phải cùng nằm trong tập mới nhất (Test)"
     assert set(multi_indices).isdisjoint(set(train)), "Không được rò rỉ tin đăng cũ của nhóm sang tập Train"
+
+
+def test_protocol_b_strict_temporal_purged():
+    from src.data.split import split_strict_temporal_purged, compare_split_protocols
+
+    dates = pd.date_range("2025-01-01", periods=100)
+    records = [{"property_group_id": f"group-{i}", "listing_date": dates[i]} for i in range(100)]
+    records.append({"property_group_id": "group-overlapping", "listing_date": pd.Timestamp("2025-01-10")})
+    records.append({"property_group_id": "group-overlapping", "listing_date": pd.Timestamp("2025-09-15")})
+    frame = pd.DataFrame(records)
+
+    train_idx, test_idx, audit = split_strict_temporal_purged(frame, train_val_ratio=0.75)
+    train_groups = set(frame.iloc[train_idx]["property_group_id"])
+    test_groups = set(frame.iloc[test_idx]["property_group_id"])
+
+    assert train_groups.isdisjoint(test_groups), "Protocol B phải purge toàn bộ các group giao nhau qua mốc cutoff!"
+    assert audit["purged_overlapping_groups_count"] == 1
+    assert "group-overlapping" not in test_groups
+
+    comparison = compare_split_protocols(frame)
+    assert "protocol_a_group_isolated" in comparison
+    assert "protocol_b_strict_temporal" in comparison
+

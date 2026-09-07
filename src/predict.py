@@ -1,6 +1,9 @@
-"""Mô-đun tương thích ngược cho dự báo giá, Conformal Prediction, OOD, SHAP và Comparables.
+"""[DEPRECATED LEGACY WRAPPER] Mô-đun tương thích ngược cho dự báo giá và giải thích.
 
-Ủy nhiệm toàn bộ chức năng sang gói chuyên biệt `src.serving` và `src.artifacts`.
+LƯU Ý KIẾN TRÚC:
+Toàn bộ mã nguồn chính thức, API FastAPI và ứng dụng Streamlit đã được chuyển dịch sang
+`src.serving.predictor` và `src.artifacts.loader`.
+Tệp này chỉ được duy trì làm proxy chuyển tiếp cho các notebook và Docker command cũ.
 """
 
 from typing import Any

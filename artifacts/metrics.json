@@ -30,5 +30,5 @@
   },
   "selection_status": "champion",
   "production_readiness": "research_only",
-  "deployment_reason": "Mô hình đạt danh hiệu Champion (vượt baseline 9.5%). Trạng thái phục vụ: RESEARCH_ONLY (WAPE=42.9% > 30%, Coverage=84.4% >= 75%)."
+  "deployment_reason": "Release Gate: Trạng thái RESEARCH_ONLY. Test WAPE=42.9% (Chưa đạt<=30%), Coverage=84.4% (Đạt>=75%)."
 }

@@ -92,5 +92,19 @@ FLAG_FEATURES: list[str] = [
     "is_urgent_sale",
 ]
 
-# Tổng hợp toàn bộ danh sách đặc trưng mô hình sử dụng
+# Các cờ chỉ báo khuyết thiếu dữ liệu có chủ đích (Missingness Indicators)
+MISSING_INDICATOR_FEATURES: list[str] = [
+    "gps_missing",
+    "width_missing",
+    "length_missing",
+    "bedrooms_missing",
+    "bathrooms_missing",
+    "floors_missing",
+    "road_type_missing",
+    "alley_width_missing",
+]
+
+# Tổng hợp toàn bộ danh sách đặc trưng mô hình cốt lõi
 MODEL_FEATURES: list[str] = NUMERIC_FEATURES + CATEGORICAL_FEATURES + FLAG_FEATURES
+EXTENDED_MODEL_FEATURES: list[str] = MODEL_FEATURES + MISSING_INDICATOR_FEATURES
+

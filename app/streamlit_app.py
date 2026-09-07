@@ -16,8 +16,9 @@ if str(ROOT) not in sys.path:
 import pandas as pd
 import streamlit as st
 
+from src.artifacts.loader import load_production_model as load_model
 from src.config import RESIDENTIAL_TYPES, SUPPORTED_AREAS
-from src.predict import load_model, predict_one
+from src.serving.predictor import predict_one
 
 # ---------------------------------------------------------------------------
 # Cấu hình trang Streamlit và kiểu hiển thị
@@ -56,7 +57,7 @@ st.markdown(
     }
     </style>
     """,
-    unsafe_allow_kwargs={"allow_html": True},
+    unsafe_allow_html=True,
 )
 
 # Tiêu đề chính

@@ -21,7 +21,11 @@ from typing import Any
 import pandas as pd
 
 from src.artifacts.loader import clear_model_cache
-from src.artifacts.schema import evaluate_promotion
+from src.artifacts.schema import (
+    evaluate_development_gate,
+    evaluate_promotion,
+    evaluate_release_gate,
+)
 from src.artifacts.writer import save_model_artifacts
 from src.calibration.conformal import calibrate_conformal
 from src.config import DATA_PATH, MODEL_VERSION, logger
@@ -124,17 +128,45 @@ def run_pipeline(
         target_coverage=0.8,
     )
 
-    # 10. PROMOTION GATE
+    # 10. GOVERNANCE & PROMOTION GATES (Development Gate on Val, Release Gate on Test)
     champion_metrics = evaluation_result["champion_metrics"]
     int_metrics = evaluation_result["interval_metrics"]
+
+    dev_gate = evaluate_development_gate(
+        champion_val_mae=selection_result["best_val_mae"],
+        naive_val_mae=selection_result["naive_val_mae"],
+        val_wape=float(selection_result.get("best_candidate_metrics", {}).get("wape_percent", 40.0)),
+    )
+    rel_gate = evaluate_release_gate(
+        test_wape=float(champion_metrics["wape_percent"]),
+        test_coverage=float(int_metrics["actual_coverage"]),
+        relative_interval_width=float(int_metrics["relative_interval_width"]),
+    )
     promotion_result = evaluate_promotion(
         champion_val_mae=selection_result["best_val_mae"],
         naive_val_mae=selection_result["naive_val_mae"],
         val_wape=float(champion_metrics["wape_percent"]),
         actual_coverage=float(int_metrics["actual_coverage"]),
     )
+    logger.info("%s", dev_gate["gate_reason"])
+    logger.info("%s", rel_gate["gate_reason"])
 
-    # 11. DATA CARD
+    # 11. COMPARABLE ENGINE CONTEXT & OFFLINE VALIDATION BENCHMARK
+    from src.comparables import ComparableContext, evaluate_comparables_on_validation
+    ref_df = refit_result["df_train_dev"].copy()
+    ref_df["distance_to_cbd_km"] = refit_result["features_train_dev"]["distance_to_cbd_km"].to_numpy()
+    comparable_context = ComparableContext.fit(ref_df)
+
+    # Đánh giá ngoại suy định giá của Comparable Engine trên Validation set (Train comps ONLY)
+    comp_eval_result = evaluate_comparables_on_validation(
+        df_train=df_train,
+        df_val=df_val,
+        context=comparable_context,
+        n_matches=4,
+    )
+    logger.info("Comparable Engine Validation Benchmark: %s", comp_eval_result["summary"])
+
+    # 12. DATA CARD & METADATA
     data_card = {
         "source_file": Path(data_path).name,
         "model_version": model_version,
@@ -142,6 +174,8 @@ def run_pipeline(
         "rows_valid": audit_stats.get("rows_valid", len(clean_df)),
         "rows_clean": audit_stats.get("rows_clean", len(clean_df)),
         "unique_property_groups": audit_stats.get("unique_property_groups", clean_df["property_group_id"].nunique()),
+        "multi_listing_groups_count": audit_stats.get("multi_listing_groups_count", 0),
+        "largest_group_size": audit_stats.get("largest_group_size", 1),
         "rows_removed_by_reason": audit_stats.get("rows_removed_by_reason", {}),
         "missing_rate_by_column": {
             col: round(float(clean_df[col].isna().mean() * 100), 2) for col in clean_df.columns
@@ -159,15 +193,14 @@ def run_pipeline(
         "reference_date_final": final_feature_context.reference_date,
         "split_protocol": split_manifest.protocol,
         "target": "Price (triệu VND, giá đăng rao)",
+        "development_gate": dev_gate,
+        "release_gate": rel_gate,
         "promotion_status": promotion_result["promotion_status"],
         "readiness_status": promotion_result["production_readiness"],
+        "comparable_validation_benchmark": comp_eval_result,
     }
 
-    # 12. ARTIFACT PERSISTENCE
-    # Chuẩn bị dữ liệu tham chiếu (Train+Val) cho Comparables Engine
-    ref_df = refit_result["df_train_dev"].copy()
-    ref_df["distance_to_cbd_km"] = refit_result["features_train_dev"]["distance_to_cbd_km"].to_numpy()
-
+    # 13. ARTIFACT PERSISTENCE
     artifact_paths = save_model_artifacts(
         version=model_version,
         pipeline=champion_pipeline,
@@ -183,6 +216,7 @@ def run_pipeline(
         training_ranges=refit_result["training_ranges"],
         training_quantiles=refit_result["training_quantiles"],
         segment_unit_prices=refit_result["segment_unit_prices"],
+        comparable_context=comparable_context,
     )
 
     # Xóa LRU cache để serving nhận ngay artifact mới

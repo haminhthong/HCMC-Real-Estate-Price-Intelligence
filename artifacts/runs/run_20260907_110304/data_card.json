@@ -1,0 +1,113 @@
+{
+  "source_file": "data_public_sample.csv",
+  "model_version": "1.2.0",
+  "rows_raw": 2500,
+  "rows_valid": 727,
+  "rows_clean": 723,
+  "unique_property_groups": 707,
+  "multi_listing_groups_count": 15,
+  "largest_group_size": 3,
+  "rows_removed_by_reason": {
+    "unsupported_property_type": 1587,
+    "numeric_or_price_outliers": 186,
+    "exact_duplicate_listings": 4
+  },
+  "missing_rate_by_column": {
+    "Title": 0.0,
+    "Price": 0.0,
+    "Area": 0.0,
+    "Location": 0.0,
+    "Listing ID": 0.0,
+    "Last Updated": 0.0,
+    "Property Type": 0.0,
+    "Width": 53.11,
+    "Length": 64.59,
+    "Bedrooms": 21.02,
+    "Bathrooms": 48.69,
+    "Floors": 62.79,
+    "Position": 52.42,
+    "Direction": 76.63,
+    "Alley Width": 82.3,
+    "Road Type": 84.37,
+    "Description": 2.49,
+    "Latitude": 72.89,
+    "Longitude": 72.89,
+    "Province": 0.0,
+    "Property Type Slug": 0.0,
+    "Scraped At": 0.0,
+    "Last Updated Date": 0.0,
+    "location_area": 0.0,
+    "listing_date_missing": 0.0,
+    "listing_date": 0.0,
+    "property_group_id": 0.0,
+    "identity_confidence": 0.0
+  },
+  "target_percentiles": {
+    "p10": 2400.0,
+    "p25": 3650.0,
+    "p50": 5990.0,
+    "p75": 11200.0,
+    "p90": 22740.0
+  },
+  "area_percentiles": {
+    "p10": 50.0,
+    "p25": 60.0,
+    "p50": 75.0,
+    "p75": 100.0,
+    "p90": 149.4
+  },
+  "date_min": "2025-05-03T21:29:00",
+  "date_max": "2025-09-30T18:27:00",
+  "reference_date_final": "2025-09-29T18:38:00",
+  "split_protocol": "grouped_temporal_split_60_15_10_15_by_latest_group_listing_date",
+  "target": "Price (triệu VND, giá đăng rao)",
+  "development_gate": {
+    "gate_name": "development_gate",
+    "evaluation_split": "validation",
+    "champion_approved": false,
+    "beats_baseline": false,
+    "baseline_improvement_percent": 9.54,
+    "val_wape_acceptable": false,
+    "gate_reason": "Development Gate: Cải thiện so với baseline=9.54% (Chưa đạt>=10%), Val WAPE=40.00% (Chưa đạt)."
+  },
+  "release_gate": {
+    "gate_name": "release_gate",
+    "evaluation_split": "test",
+    "production_ready": false,
+    "readiness_status": "research_only",
+    "test_wape_acceptable": false,
+    "interval_coverage_acceptable": true,
+    "interval_width_acceptable": true,
+    "gate_reason": "Release Gate: Trạng thái RESEARCH_ONLY. Test WAPE=42.9% (Chưa đạt<=30%), Coverage=84.4% (Đạt>=75%).",
+    "governance_notice": "QUY TẮC PHÁT HÀNH: Nếu Release Gate trả về 'research_only', nghiêm cấm tinh chỉnh mô hình dựa trên số liệu của tập Test. Bắt buộc giữ nguyên báo cáo kiểm thử và cải thiện thông qua bổ sung dữ liệu hoặc mở chu kỳ thử nghiệm độc lập mới."
+  },
+  "promotion_status": {
+    "model_selected": true,
+    "beats_baseline": false,
+    "baseline_improvement_percent": 9.54,
+    "wape_acceptable": false,
+    "interval_calibrated": true,
+    "production_ready": false
+  },
+  "readiness_status": "research_only",
+  "comparable_validation_benchmark": {
+    "evaluation_samples": 106,
+    "comparable_metrics": {
+      "mae_million": 3760.47,
+      "median_ae_million": 1997.5,
+      "wape_percent": 49.15
+    },
+    "naive_baseline_metrics": {
+      "mae_million": 3801.13,
+      "median_ae_million": 2200.0,
+      "wape_percent": 49.69
+    },
+    "segment_baseline_metrics": {
+      "mae_million": 3699.83,
+      "median_ae_million": 2117.77,
+      "wape_percent": 48.36
+    },
+    "improvement_over_naive_percent": 1.07,
+    "summary": "Comparable Median đạt Val MAE=3,760.5M (WAPE=49.15%), so với Naive MAE=3,801.1M và Segment MAE=3,699.8M."
+  }
+}

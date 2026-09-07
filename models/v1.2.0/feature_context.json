@@ -29,5 +29,6 @@
     "near_market",
     "near_school",
     "is_urgent_sale"
-  ]
+  ],
+  "missing_indicator_features": []
 }

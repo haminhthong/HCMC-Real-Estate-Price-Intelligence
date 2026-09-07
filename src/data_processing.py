@@ -1,7 +1,8 @@
-"""Mô-đun tương thích ngược cho tiền xử lý và làm sạch dữ liệu.
+"""[DEPRECATED LEGACY WRAPPER] Mô-đun tương thích ngược cho tiền xử lý và làm sạch dữ liệu.
 
-Tệp này chuyển tiếp các lời gọi hàm sang gói kiến trúc mới `src.data` để đảm bảo
-100% tương thích ngược với mã nguồn hiện tại và các bài test.
+LƯU Ý KIẾN TRÚC:
+Toàn bộ mã nguồn chính thức và các bài test đã được chuyển dịch hoàn toàn sang gói `src.data`.
+Tệp này chỉ được duy trì làm proxy chuyển tiếp cho các notebook và script cũ.
 """
 
 from typing import Any

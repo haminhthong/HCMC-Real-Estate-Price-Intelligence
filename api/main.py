@@ -8,10 +8,12 @@
 """
 
 from typing import Any, Literal
+import numpy as np
 
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
+from src.artifacts.loader import load_production_model as load_model
 from src.config import (
     MODEL_PATH,
     MODEL_VERSION,
@@ -19,7 +21,7 @@ from src.config import (
     SUPPORTED_AREAS,
     logger,
 )
-from src.predict import load_model, predict_one
+from src.serving.predictor import predict_one
 
 # Khởi tạo ứng dụng FastAPI và tài liệu OpenAPI.
 app = FastAPI(
@@ -138,6 +140,11 @@ class PredictionRequest(BaseModel):
     near_market: bool = Field(default=False, description="Cờ tiện ích: Gần chợ / siêu thị")
     near_school: bool = Field(default=False, description="Cờ tiện ích: Gần trường học / đại học")
     is_urgent_sale: bool = Field(default=False, description="Cờ tiện ích: Chính chủ cần bán gấp")
+    as_of_date: str | None = Field(
+        default=None,
+        description="Thời điểm định giá tham chiếu (ISO format YYYY-MM-DD; mặc định là ngày hiện tại)",
+        examples=["2025-09-30"],
+    )
     include_explanation: bool = Field(
         default=False,
         description="Cờ yêu cầu giải thích 5 đặc trưng SHAP quan trọng nhất (Mặc định False để tiết kiệm tài nguyên CPU)",
@@ -166,6 +173,16 @@ class PredictionInterval(BaseModel):
     lower_bound_million: float = Field(..., description="Cận dưới khoảng dự báo conformal (triệu VND)")
     upper_bound_million: float = Field(..., description="Cận trên khoảng dự báo conformal (triệu VND)")
     target_coverage: float = Field(0.8, description="Mức độ bao phủ mục tiêu (0.8 = 80%)")
+
+
+class UncertaintyResponse(BaseModel):
+    """Đo lường độ bất định thống kê từ Conformal Calibration."""
+
+    target_coverage: float = Field(0.8, description="Mức độ bao phủ mục tiêu (0.8 = 80%)")
+    lower_bound_million: float = Field(..., description="Cận dưới khoảng dự báo (triệu VND)")
+    upper_bound_million: float = Field(..., description="Cận trên khoảng dự báo (triệu VND)")
+    interval_width_million: float = Field(..., description="Bề rộng khoảng dự báo (triệu VND)")
+    relative_interval_width: float = Field(..., description="Tỷ lệ bề rộng khoảng so với giá ước tính")
 
 
 class ValuationResponse(BaseModel):
@@ -226,8 +243,9 @@ class ModelMetaResponse(BaseModel):
 class PredictionResponse(BaseModel):
     """Dữ liệu kết quả phản hồi định giá Price Intelligence hoàn chỉnh."""
 
-    # Schema phân tầng hiện đại
+    # Schema phân tầng hiện đại 5 trụ cột
     valuation: ValuationResponse | None = None
+    uncertainty: UncertaintyResponse | None = None
     market_context: MarketContextResponse | None = None
     reliability: ReliabilityResponse | None = None
     comparables: list[ComparableProperty] = Field(default_factory=list, description="Bất động sản tương đồng")
@@ -318,3 +336,35 @@ def explain(request: PredictionRequest) -> dict[str, Any]:
     except (FileNotFoundError, ValueError, RuntimeError) as exc:
         logger.error("Lỗi khi xử lý dự báo giá và SHAP: %s", exc)
         raise HTTPException(status_code=503, detail=str(exc)) from exc
+
+
+@app.get("/market/districts", summary="Thống kê trung vị giá theo quận/huyện", tags=["Market Intelligence"])
+def get_market_districts() -> dict[str, Any]:
+    """Trả về bảng tra cứu đơn giá trung vị và danh mục khu vực được hỗ trợ tại TP.HCM."""
+    try:
+        artifact = load_model()
+        unit_prices = artifact.get("segment_unit_prices", {})
+        # Gom đơn giá trung bình theo từng quận
+        district_data: dict[str, list[float]] = {}
+        for (p_type, area_name), unit_price in unit_prices.items():
+            if area_name not in district_data:
+                district_data[area_name] = []
+            district_data[area_name].append(unit_price)
+
+        districts_summary = {}
+        for area_name in sorted(artifact.get("supported_areas", SUPPORTED_AREAS)):
+            prices = district_data.get(area_name, [])
+            districts_summary[area_name] = {
+                "supported": True,
+                "median_unit_price_million_m2": round(float(np.median(prices)), 1) if prices else None,
+                "property_types_tracked": len(prices),
+            }
+
+        return {
+            "total_supported_districts": len(districts_summary),
+            "districts": districts_summary,
+        }
+    except Exception as exc:
+        logger.error("Lỗi khi lấy thông tin phân tích thị trường: %s", exc)
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
+

@@ -1,6 +1,8 @@
-"""Mô-đun tương thích ngược cho trích xuất đặc trưng (Feature Engineering).
+"""[DEPRECATED LEGACY WRAPPER] Mô-đun tương thích ngược cho trích xuất đặc trưng (Feature Engineering).
 
-Ủy nhiệm toàn bộ chức năng sang gói chuyên biệt `src.features`.
+LƯU Ý KIẾN TRÚC:
+Toàn bộ mã nguồn chính thức và các bài test đã được chuyển dịch hoàn toàn sang gói `src.features`.
+Tệp này chỉ được duy trì làm proxy chuyển tiếp cho các notebook và script cũ.
 """
 
 from src.features import (

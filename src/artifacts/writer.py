@@ -51,6 +51,7 @@ def save_model_artifacts(
     training_ranges: dict[str, list[float]],
     training_quantiles: dict[str, list[float]],
     segment_unit_prices: dict[tuple[str, str], float],
+    comparable_context: Any = None,
 ) -> dict[str, Path]:
     """Ghi toàn bộ artifacts theo cấu trúc thư mục versioned và decoupled comparables."""
     v_tag = f"v{version}" if not version.startswith("v") else version
@@ -79,7 +80,15 @@ def save_model_artifacts(
     }
     _write_json(manifest_bundle, models_dir / "manifest.json")
 
-    # 5. Lưu metadata version
+    # 5. Lưu comparable context nếu có
+    if comparable_context is not None:
+        comp_ctx_dict = comparable_context.to_dict() if hasattr(comparable_context, "to_dict") else comparable_context
+        _write_json(comp_ctx_dict, models_dir / "comparable_context.json")
+        _write_json(comp_ctx_dict, runs_dir / "comparable_context.json")
+        _write_json(comp_ctx_dict, ROOT_DIR / "artifacts" / "comparable_context.json")
+
+    # 6. Lưu metadata version
+    target_p90 = float(data_card.get("target_percentiles", {}).get("p90", 22740.0))
     metadata = {
         "version": version,
         "model_type": selection_result["selected_model_name"],
@@ -89,24 +98,12 @@ def save_model_artifacts(
         "supported_property_types": sorted(reference_df["Property Type"].unique().tolist()) if "Property Type" in reference_df else [],
         "training_ranges": training_ranges,
         "training_quantiles": training_quantiles,
+        "target_p90": target_p90,
         "created_at": datetime.now().isoformat(),
     }
     _write_json(metadata, models_dir / "metadata.json")
 
     # 6. Tách rời bảng tham chiếu Comparables (Decoupled Reference Dataset)
-    ref_columns = [
-        "property_type",
-        "location_area",
-        "area",
-        "price_million",
-        "unit_price_million_m2",
-        "bedrooms",
-        "bathrooms",
-        "floors",
-        "distance_to_cbd_km",
-        "has_furniture",
-        "car_alley",
-    ]
     ref_clean_rows = []
     for _, row in reference_df.iterrows():
         area_val = float(row["Area"]) if pd.notna(row.get("Area")) and float(row.get("Area")) > 0 else None
@@ -114,6 +111,7 @@ def save_model_artifacts(
         unit_price = round(price_val / area_val, 1) if (price_val and area_val) else None
         ref_clean_rows.append(
             {
+                "property_group_id": str(row.get("property_group_id", "")),
                 "property_type": str(row.get("Property Type", "Nhà riêng")),
                 "location_area": str(row.get("location_area", "Unknown")),
                 "area": area_val,
@@ -122,7 +120,10 @@ def save_model_artifacts(
                 "bedrooms": int(row["Bedrooms"]) if pd.notna(row.get("Bedrooms")) else None,
                 "bathrooms": int(row["Bathrooms"]) if pd.notna(row.get("Bathrooms")) else None,
                 "floors": int(row["Floors"]) if pd.notna(row.get("Floors")) else None,
+                "latitude": float(row["Latitude"]) if pd.notna(row.get("Latitude")) else None,
+                "longitude": float(row["Longitude"]) if pd.notna(row.get("Longitude")) else None,
                 "distance_to_cbd_km": round(float(row["distance_to_cbd_km"]), 2) if pd.notna(row.get("distance_to_cbd_km")) else None,
+                "listing_date": str(row.get("listing_date", "")),
                 "has_furniture": int(row.get("has_furniture", 0)),
                 "car_alley": int(row.get("car_alley", 0)),
             }
@@ -212,6 +213,8 @@ def save_model_artifacts(
         "split_protocol": "grouped temporal split 60/15/10/15 with 2-phase champion refit",
         "segment_unit_prices": segment_unit_prices,
         "reference_listings": ref_clean_rows,
+        "comparable_context": comparable_context.to_dict() if hasattr(comparable_context, "to_dict") else comparable_context,
+        "target_p90": target_p90,
         "promotion_status": promotion_result,
     }
     save_atomic_joblib(legacy_artifact, MODEL_PATH)

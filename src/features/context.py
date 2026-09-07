@@ -27,6 +27,7 @@ class FeatureContext:
     numeric_features: list[str] = field(default_factory=lambda: list(NUMERIC_FEATURES))
     categorical_features: list[str] = field(default_factory=lambda: list(CATEGORICAL_FEATURES))
     flag_features: list[str] = field(default_factory=lambda: list(FLAG_FEATURES))
+    missing_indicator_features: list[str] = field(default_factory=list)
 
     @classmethod
     def fit(
@@ -69,8 +70,14 @@ class FeatureContext:
             numeric_features=data.get("numeric_features", list(NUMERIC_FEATURES)),
             categorical_features=data.get("categorical_features", list(CATEGORICAL_FEATURES)),
             flag_features=data.get("flag_features", list(FLAG_FEATURES)),
+            missing_indicator_features=data.get("missing_indicator_features", []),
         )
 
     @property
     def model_features(self) -> list[str]:
-        return self.numeric_features + self.categorical_features + self.flag_features
+        return (
+            self.numeric_features
+            + self.categorical_features
+            + self.flag_features
+            + self.missing_indicator_features
+        )

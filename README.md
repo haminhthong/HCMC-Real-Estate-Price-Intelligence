@@ -1,9 +1,14 @@
 # HCMC Real Estate Price Intelligence
 
 [![Python Version](https://img.shields.io/badge/Python-3.10%2B-blue.svg)](https://www.python.org/)
-[![FastAPI](https://img.shields.io/badge/FastAPI-0.115-009688.svg)](https://fastapi.tiangolo.com/)
-[![Streamlit](https://img.shields.io/badge/Streamlit-1.40-FF4B4B.svg)](https://streamlit.io/)
-[![scikit--learn](https://img.shields.io/badge/scikit--learn-1.5%2B-F7931E.svg)](https://scikit-learn.org/)
+[![CI](https://github.com/haminhthong/hcmc-real-estate-price-intelligence/actions/workflows/ci.yml/badge.svg)](https://github.com/haminhthong/hcmc-real-estate-price-intelligence/actions/workflows/ci.yml)
+[![Pandas](https://img.shields.io/badge/pandas-2.2.3-150458.svg)](https://pandas.pydata.org/)
+[![FastAPI](https://img.shields.io/badge/FastAPI-0.115.5-009688.svg)](https://fastapi.tiangolo.com/)
+[![Streamlit](https://img.shields.io/badge/Streamlit-1.40.2-FF4B4B.svg)](https://streamlit.io/)
+[![scikit--learn](https://img.shields.io/badge/scikit--learn-1.5.2-F7931E.svg)](https://scikit-learn.org/)
+[![Pytest](https://img.shields.io/badge/pytest-8.3.3-0A9EDC.svg)](https://docs.pytest.org/)
+[![Ruff](https://img.shields.io/badge/Ruff-0.8.0-D7FF64.svg)](https://docs.astral.sh/ruff/)
+[![Docker](https://img.shields.io/badge/Docker-supported-2496ED.svg)](https://www.docker.com/)
 [![License](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 
 Hệ thống ước lượng **giá niêm yết tham khảo** cho bất động sản nhà ở tại
@@ -231,6 +236,7 @@ API endpoint:
 hcmc-real-estate-price-intelligence/
 ├── api/                         # FastAPI schemas và endpoints
 ├── app/                         # Streamlit UI
+├── .github/workflows/ci.yml     # CI: Ruff, pytest, evaluation report
 ├── data/
 │   └── sample/                  # Dataset mẫu dùng để chạy thử
 ├── models/
@@ -306,6 +312,23 @@ streamlit run app/streamlit_app.py
 ```
 
 Swagger UI: <http://127.0.0.1:8000/docs>
+
+### Chạy bằng Docker Compose
+
+```powershell
+docker compose up --build
+```
+
+- API: <http://127.0.0.1:8000/docs>
+- Dashboard: <http://127.0.0.1:8501>
+
+### CI
+
+Workflow [`ci.yml`](.github/workflows/ci.yml) chạy trên mỗi push và pull
+request. CI cài `requirements-dev.txt`, kiểm tra Ruff trên `api/app/src`, chạy
+toàn bộ pytest và kiểm tra báo cáo evaluation đã lưu. CI không train lại hoặc
+ghi đè artifact version đã tồn tại; việc train release được thực hiện riêng qua
+canonical pipeline với version mới.
 
 ## 8. Governance và nguyên tắc an toàn
 

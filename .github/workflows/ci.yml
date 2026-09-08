@@ -3,7 +3,7 @@ on:
   push:
   pull_request:
 jobs:
-  test:
+  quality:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -11,7 +11,13 @@ jobs:
         with:
           python-version: "3.11"
           cache: pip
-      - run: pip install -r requirements.txt
-      - run: python -m src.train
-      - run: python -m src.evaluate
-      - run: pytest -q
+      - name: Install development dependencies
+        run: python -m pip install --upgrade pip && python -m pip install -r requirements-dev.txt
+      - name: Run Ruff
+        run: python -m ruff check --no-cache api app src
+      - name: Run tests
+        env:
+          PYTHONDONTWRITEBYTECODE: "1"
+        run: python -m pytest -q -p no:cacheprovider
+      - name: Validate stored evaluation report
+        run: python -B -m src.evaluate

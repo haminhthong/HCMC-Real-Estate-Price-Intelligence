@@ -324,11 +324,12 @@ docker compose up --build
 
 ### CI
 
-Workflow [`ci.yml`](.github/workflows/ci.yml) chạy trên mỗi push và pull
-request. CI cài `requirements-dev.txt`, kiểm tra Ruff trên `api/app/src`, chạy
-toàn bộ pytest và kiểm tra báo cáo evaluation đã lưu. CI không train lại hoặc
-ghi đè artifact version đã tồn tại; việc train release được thực hiện riêng qua
-canonical pipeline với version mới.
+Workflow [`ci.yml`](.github/workflows/ci.yml) chạy trên mỗi push, pull request
+hoặc có thể kích hoạt thủ công bằng `workflow_dispatch`. CI cài
+`requirements-dev.txt`, chạy `pip check`, kiểm tra Ruff trên `api/app/src`,
+chạy toàn bộ pytest và kiểm tra báo cáo evaluation đã lưu. CI không train lại
+hoặc ghi đè artifact version đã tồn tại; việc train release được thực hiện
+riêng qua canonical pipeline với version mới.
 
 ## 8. Governance và nguyên tắc an toàn
 

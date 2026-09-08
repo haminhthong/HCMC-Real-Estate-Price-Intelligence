@@ -64,6 +64,7 @@ def find_comparables(
     valuation_date = pd.to_datetime(
         values.get("as_of_date", values.get("valuation_date", values.get("listing_date"))),
         errors="coerce",
+        utc=True,
     )
 
     target_area = (
@@ -85,26 +86,37 @@ def find_comparables(
     target_lon = float(values["Longitude"]) if pd.notna(values.get("Longitude")) else None
     target_cbd = float(values["distance_to_cbd_km"]) if pd.notna(values.get("distance_to_cbd_km")) else None
 
-    # 1. Chặn future leakage trước khi tính similarity.
+    def is_dated_past_listing(reference: dict[str, Any]) -> bool:
+        """Chặn future listing khi query có mốc thời gian định giá.
+
+        Luồng serving luôn tự bổ sung ``as_of_date``. Chỉ các caller legacy
+        không truyền mốc thời gian mới được giữ fixture cũ không có ngày.
+        """
+        reference_date = pd.to_datetime(
+            reference.get("listing_date"), errors="coerce", utc=True
+        )
+        if pd.isna(valuation_date):
+            return True
+        return bool(pd.notna(reference_date) and reference_date <= valuation_date)
+
+    # 1. Chặn future leakage và loại ngày unknown trước khi tính similarity.
     dated_candidates = [
         r
         for r in references
         if r.get("property_type") == target_type
         and (target_group_id is None or r.get("property_group_id") != target_group_id)
-        and (
-            pd.isna(valuation_date)
-            or (
-                pd.notna(pd.to_datetime(r.get("listing_date"), errors="coerce"))
-                and pd.to_datetime(r.get("listing_date"), errors="coerce") <= valuation_date
-            )
-        )
+        and is_dated_past_listing(r)
     ]
 
     if pd.notna(valuation_date):
         dated_candidates = [
             r
             for r in dated_candidates
-            if (valuation_date - pd.to_datetime(r.get("listing_date"), errors="coerce")).days <= 365
+            if (
+                valuation_date
+                - pd.to_datetime(r.get("listing_date"), errors="coerce", utc=True)
+            ).days
+            <= 365
         ]
 
     area_candidates = [
@@ -172,8 +184,8 @@ def find_comparables(
             and str(c_date_val).strip() != ""
         ):
             try:
-                t_dt = pd.to_datetime(target_date_val)
-                c_dt = pd.to_datetime(c_date_val)
+                t_dt = pd.to_datetime(target_date_val, utc=True)
+                c_dt = pd.to_datetime(c_date_val, utc=True)
                 days_diff = max((t_dt - c_dt).days, 0)
                 recency_dist = min(days_diff / 180.0, 2.0)
             except (TypeError, ValueError):

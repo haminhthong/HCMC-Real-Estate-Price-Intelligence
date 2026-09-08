@@ -117,8 +117,10 @@ def check_reliability_guards(
 
     # Tuổi thị trường được tính theo ngày định giá thực tế, không phải ngày
     # mặc định của feature vector. Đây là cảnh báo riêng cho model stale.
-    reference_date = pd.to_datetime(model_package.get("reference_date"), errors="coerce")
-    valuation_date = pd.to_datetime(as_of_date, errors="coerce")
+    reference_date = pd.to_datetime(
+        model_package.get("reference_date"), errors="coerce", utc=True
+    )
+    valuation_date = pd.to_datetime(as_of_date, errors="coerce", utc=True)
     if pd.notna(reference_date) and pd.notna(valuation_date):
         market_age_days = int((valuation_date - reference_date).days)
         if market_age_days > 180:

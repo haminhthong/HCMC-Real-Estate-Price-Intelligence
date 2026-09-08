@@ -52,11 +52,11 @@ def predict_one(
     as_of_date = values.get("as_of_date", values.get("valuation_date"))
     if as_of_date is None or pd.isna(as_of_date):
         as_of_date = datetime.now(ZoneInfo("Asia/Ho_Chi_Minh")).date().isoformat()
-    as_of_timestamp = pd.to_datetime(as_of_date, errors="coerce")
+    as_of_timestamp = pd.to_datetime(as_of_date, errors="coerce", utc=True)
     if pd.isna(as_of_timestamp):
         raise ValueError("as_of_date phải là ngày hợp lệ theo ISO format.")
     as_of_date = as_of_timestamp.date().isoformat()
-    reference_timestamp = pd.to_datetime(reference_date, errors="coerce")
+    reference_timestamp = pd.to_datetime(reference_date, errors="coerce", utc=True)
     market_age_days = (
         int((as_of_timestamp - reference_timestamp).days)
         if pd.notna(reference_timestamp)

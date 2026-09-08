@@ -10,7 +10,6 @@ import sys
 from src.config import (
     METRICS_PATH,
     MODEL_COMPARISON_PATH,
-    MODEL_PATH,
     logger,
 )
 from src.evaluation.report import format_evaluation_summary
@@ -18,8 +17,8 @@ from src.evaluation.report import format_evaluation_summary
 
 def main() -> None:
     """Đọc và in báo cáo kết quả đánh giá đã lưu trong lượt huấn luyện gần nhất."""
-    if not MODEL_PATH.exists() or not METRICS_PATH.exists():
-        logger.error("Chưa tìm thấy file mô hình hoặc file metrics.")
+    if not METRICS_PATH.exists():
+        logger.error("Chưa tìm thấy file metrics.")
         raise SystemExit("Chưa có kết quả đánh giá. Hãy chạy huấn luyện trước: python -m src.pipeline train")
 
     metrics = json.loads(METRICS_PATH.read_text(encoding="utf-8"))

@@ -54,7 +54,7 @@ class PredictionRequest(BaseModel):
     )
     area: float = Field(
         ...,
-        gt=0,
+        ge=5,
         le=500,
         alias="Area",
         description="Diện tích đất/sử dụng (m²)",
@@ -333,7 +333,7 @@ def predict(request: PredictionRequest) -> dict[str, Any]:
         if str(exc).startswith("UNSUPPORTED_MARKET_SCOPE"):
             raise HTTPException(status_code=422, detail=str(exc)) from exc
         logger.error("Lỗi dữ liệu đầu vào khi xử lý dự báo giá: %s", exc)
-        raise HTTPException(status_code=503, detail=str(exc)) from exc
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
     except (FileNotFoundError, RuntimeError) as exc:
         logger.error("Lỗi khi xử lý dự báo giá: %s", exc)
         raise HTTPException(status_code=503, detail=str(exc)) from exc
@@ -345,7 +345,10 @@ def explain(request: PredictionRequest) -> dict[str, Any]:
     try:
         payload = request.model_dump(by_alias=True)
         return predict_one(payload, include_explanation=True)
-    except (FileNotFoundError, ValueError, RuntimeError) as exc:
+    except ValueError as exc:
+        logger.error("Lỗi dữ liệu đầu vào khi xử lý giải thích: %s", exc)
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    except (FileNotFoundError, RuntimeError) as exc:
         logger.error("Lỗi khi xử lý dự báo giá và SHAP: %s", exc)
         raise HTTPException(status_code=503, detail=str(exc)) from exc
 

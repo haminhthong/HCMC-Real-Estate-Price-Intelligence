@@ -126,8 +126,15 @@ def evaluate_promotion(
     val_wape: float,
     actual_coverage: float,
     criteria: PromotionCriteria | None = None,
+    test_wape: float | None = None,
+    relative_interval_width: float = 1.0,
 ) -> dict[str, Any]:
-    """Hàm điều phối đánh giá phân tầng tương thích ngược kết hợp cả Development Gate và Release Gate."""
+    """Điều phối gate cho caller legacy mà không dùng nhầm Validation làm Test.
+
+    ``test_wape`` là optional để giữ tương thích chữ ký cũ. Nếu caller cũ không
+    cung cấp metric Locked Test, Release Gate sẽ fail-closed thay vì lấy lại
+    ``val_wape`` như một đại diện sai lệch.
+    """
     if criteria is None:
         criteria = PromotionCriteria()
 
@@ -148,8 +155,9 @@ def evaluate_promotion(
     )
 
     rel_result = evaluate_release_gate(
-        test_wape=val_wape,
+        test_wape=float("inf") if test_wape is None else test_wape,
         test_coverage=actual_coverage,
+        relative_interval_width=relative_interval_width,
         criteria=rel_criteria,
     )
 

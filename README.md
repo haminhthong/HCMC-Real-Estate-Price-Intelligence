@@ -10,9 +10,8 @@ Hệ thống ước lượng **giá niêm yết tham khảo** cho bất động 
 TP.HCM. Kết quả là giá chào bán dự kiến từ dữ liệu tin đăng, không phải giá
 giao dịch thực tế, thẩm định pháp lý, tư vấn tín dụng hoặc khuyến nghị đầu tư.
 
-README này là tài liệu hiện hành duy nhất của dự án. Bản README lịch sử được
-lưu tại [`docs/archive/README_v1.md`](docs/archive/README_v1.md) để tra cứu,
-không dùng làm contract của code hiện tại.
+README này là tài liệu hiện hành duy nhất của dự án. Các tài liệu snapshot cũ
+đã được loại bỏ để tránh tạo nhiều contract cạnh tranh.
 
 ## 1. Bài toán và phạm vi ứng dụng
 
@@ -234,8 +233,6 @@ hcmc-real-estate-price-intelligence/
 ├── app/                         # Streamlit UI
 ├── data/
 │   └── sample/                  # Dataset mẫu dùng để chạy thử
-├── docs/
-│   └── archive/                 # Tài liệu lịch sử, không phải contract hiện hành
 ├── models/
 │   ├── v<version>/              # Bundle immutable: model, context, calibration
 │   ├── production.json          # Pointer active production release
@@ -281,7 +278,7 @@ pip install -r requirements-dev.txt
 
 ```powershell
 python -m pytest -q -p no:cacheprovider
-python -m ruff check --no-cache api src
+python -m ruff check --no-cache api app src
 ```
 
 ### Chạy canonical training pipeline
@@ -333,4 +330,3 @@ Swagger UI: <http://127.0.0.1:8000/docs>
 - [Serving predictor](src/serving/predictor.py)
 - [Artifact governance](src/artifacts/writer.py)
 - [Current release metrics](reports/releases/v1.2.0/metrics.json)
-- [Archived README](docs/archive/README_v1.md)

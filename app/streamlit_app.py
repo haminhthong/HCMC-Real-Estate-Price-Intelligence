@@ -17,7 +17,7 @@ import pandas as pd
 import streamlit as st
 
 from src.artifacts.loader import load_production_model as load_model
-from src.config import RESIDENTIAL_TYPES, SUPPORTED_AREAS
+from src.config import CANONICAL_SPLIT_PROTOCOL, RESIDENTIAL_TYPES, SUPPORTED_AREAS
 from src.serving.predictor import predict_one
 
 # ---------------------------------------------------------------------------
@@ -90,8 +90,8 @@ with tab_predict:
                 "Quận/huyện khu vực (*)",
                 [area for area in SUPPORTED_AREAS if area != "Unknown"],
             )
-            area = st.number_input("Diện tích đất/sử dụng (m²) (*)", 5.0, 2000.0, 80.0, step=5.0)
-            bedrooms = st.number_input("Số phòng ngủ (*)", 1, 10, 3)
+            area = st.number_input("Diện tích đất/sử dụng (m²) (*)", 5.0, 500.0, 80.0, step=5.0)
+            bedrooms = st.number_input("Số phòng ngủ (0 = chưa cung cấp)", 0, 10, 3)
 
         with col2:
             st.markdown("**Thông số kích thước & kết cấu**")
@@ -129,7 +129,7 @@ with tab_predict:
             "Property Type": property_type,
             "location_area": area_name,
             "Area": area,
-            "Bedrooms": bedrooms,
+            "Bedrooms": bedrooms if bedrooms > 0 else None,
             "Bathrooms": bathrooms,
             "Floors": floors,
             "Width": width,
@@ -288,7 +288,7 @@ with tab_info:
             )
             st.write(
                 f"- **Giao thức phân chia dữ liệu**: "
-                f"`{model_package.get('split_protocol', 'grouped temporal 60/15/10/15')}`"
+                f"`{model_package.get('split_protocol', CANONICAL_SPLIT_PROTOCOL)}`"
             )
             st.write(f"- **Mục tiêu bao phủ Conformal**: `{model_package.get('target_coverage', 0.8) * 100:.0f}%`")
 

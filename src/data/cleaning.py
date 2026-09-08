@@ -70,18 +70,23 @@ def clean_data(raw: pd.DataFrame) -> pd.DataFrame:
     # 8. Tách identity của listing event khỏi property vật lý.
     if "source_id" not in df:
         df["source_id"] = "sample"
-    if "Listing ID" in df:
-        df["listing_event_id"] = (
-            df["source_id"].astype(str) + ":" + df["Listing ID"].astype(str)
-        )
     else:
-        df["listing_event_id"] = (
-            df["property_group_id"].astype(str)
-            + ":"
-            + df["listing_date"].astype(str)
-            + ":"
-            + df["Price"].astype(str)
-        )
+        df["source_id"] = df["source_id"].fillna("sample").astype(str)
+
+    fallback_event_id = (
+        df["property_group_id"].astype(str)
+        + ":"
+        + df["listing_date"].astype(str)
+        + ":"
+        + df["Price"].astype(str)
+    )
+    if "Listing ID" in df:
+        listing_id = df["Listing ID"].astype("string").str.strip()
+        valid_listing_id = listing_id.notna() & listing_id.ne("")
+        event_key = listing_id.where(valid_listing_id, fallback_event_id)
+        df["listing_event_id"] = df["source_id"] + ":" + event_key.astype(str)
+    else:
+        df["listing_event_id"] = df["source_id"] + ":" + fallback_event_id
 
     # 9. Khử trùng lặp ở cấp độ listing event. Các lần rao lại khác ngày/giá
     # vẫn được giữ để phản ánh diễn biến thị trường theo thời gian.

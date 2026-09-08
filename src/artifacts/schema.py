@@ -12,7 +12,7 @@ NGUYÊN TẮC GOVERNANCE ML THỰC CHIẾN:
      mở một experiment/phiên bản mới và tái huấn luyện từ đầu.
 """
 
-from dataclasses import asdict, dataclass
+from dataclasses import dataclass
 from typing import Any
 
 

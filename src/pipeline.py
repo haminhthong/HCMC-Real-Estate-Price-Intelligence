@@ -26,7 +26,7 @@ from src.artifacts.schema import (
 )
 from src.artifacts.writer import save_model_artifacts
 from src.calibration.conformal import calibrate_conformal
-from src.config import DATA_PATH, MODEL_VERSION, logger
+from src.config import CANONICAL_SPLIT_PROTOCOL, DATA_PATH, MODEL_VERSION, logger
 from src.data.cleaning import clean_data
 from src.data.loader import load_raw_dataset
 from src.data.manifest import create_dataset_manifest, create_split_manifest
@@ -64,7 +64,7 @@ def run_pipeline(
         snapshot_id=Path(data_path).stem,
     )
 
-    # 4. GROUPED TEMPORAL SPLIT (60 / 15 / 10 / 15)
+    # 4. CANONICAL GROUPED TEMPORAL SPLIT (60 / 15 / 10 / 15)
     train_idx, val_idx, calib_idx, test_idx = split_group_indices(clean_df)
     logger.info(
         "Grouped Temporal Split hoàn tất: Train=%d, Validation=%d, Calibration=%d, Test=%d.",
@@ -81,6 +81,7 @@ def run_pipeline(
         validation_idx=val_idx,
         calibration_idx=calib_idx,
         test_idx=test_idx,
+        protocol=CANONICAL_SPLIT_PROTOCOL,
     )
 
     df_train = clean_df.iloc[train_idx].copy()
@@ -208,6 +209,19 @@ def run_pipeline(
         "date_max": dataset_manifest.date_max,
         "reference_date_final": final_feature_context.reference_date,
         "split_protocol": split_manifest.protocol,
+        "known_date_rows": int(clean_df["listing_date"].notna().sum()),
+        "unknown_date_rows": int(clean_df["listing_date"].isna().sum()),
+        "district_coverage": sorted(clean_df["location_area"].dropna().unique().tolist()),
+        "data_quality_funnel": {
+            "raw_listings": int(audit_stats.get("rows_raw", len(raw_df))),
+            "market_scope_valid": int(audit_stats.get("rows_valid", len(clean_df))),
+            "identity_resolved": int(clean_df["property_group_id"].notna().sum()),
+            "duplicate_listing_events_removed": int(
+                audit_stats.get("rows_removed_by_reason", {}).get("exact_duplicate_listings", 0)
+            ),
+            "clean_listing_events": len(clean_df),
+            "temporal_eligible": int(clean_df["listing_date"].notna().sum()),
+        },
         "target": "Price (triệu VND, giá đăng rao)",
         "development_gate": dev_gate,
         "release_gate": rel_gate,

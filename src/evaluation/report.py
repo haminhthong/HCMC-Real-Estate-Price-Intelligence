@@ -1,6 +1,5 @@
 """Mô-đun định dạng và xuất báo cáo đánh giá mô hình (Reporting)."""
 
-import json
 from typing import Any
 
 

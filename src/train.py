@@ -5,8 +5,8 @@ Toàn bộ quy trình huấn luyện và điều phối pipeline chính thức �
 Tệp này chỉ được duy trì làm proxy chuyển tiếp cho các lệnh `python -m src.train` cũ.
 """
 
-from typing import Any
 from pathlib import Path
+from typing import Any
 
 from src.calibration.conformal import conformal_quantile
 from src.config import DATA_PATH, MODEL_VERSION

@@ -37,6 +37,9 @@ DATA_CARD_PATH: Path = ROOT_DIR / "artifacts" / "data_card.json"
 MODEL_VERSION: str = "1.2.0"
 ARTIFACT_SCHEMA_VERSION: int = 3
 RANDOM_STATE: int = 42
+CANONICAL_SPLIT_PROTOCOL: str = (
+    "grouped_temporal_split_60_15_10_15_by_latest_group_listing_date"
+)
 
 # ---------------------------------------------------------------------------
 # Danh mục loại bất động sản và khu vực được hỗ trợ tại TP.HCM

@@ -2,6 +2,7 @@
 
 from dataclasses import dataclass
 from typing import Any
+
 import pandas as pd
 
 REQUIRED_RAW_COLUMNS: set[str] = {"Price", "Area", "Property Type", "Location"}

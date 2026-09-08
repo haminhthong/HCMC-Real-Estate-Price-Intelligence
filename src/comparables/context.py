@@ -1,10 +1,10 @@
 """Mô-đun quản lý ngữ cảnh chuẩn hóa cho động cơ tra cứu bất động sản tương đồng (ComparableContext)."""
 
-from dataclasses import asdict, dataclass, field
 import json
+from dataclasses import asdict, dataclass, field
 from pathlib import Path
 from typing import Any
-import numpy as np
+
 import pandas as pd
 
 

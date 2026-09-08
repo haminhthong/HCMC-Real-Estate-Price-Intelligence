@@ -6,10 +6,8 @@ báo cáo chuẩn hóa qua màn hình console.
 
 import json
 import sys
-from pathlib import Path
 
 from src.config import (
-    ERROR_ANALYSIS_PATH,
     METRICS_PATH,
     MODEL_COMPARISON_PATH,
     MODEL_PATH,
@@ -26,8 +24,6 @@ def main() -> None:
 
     metrics = json.loads(METRICS_PATH.read_text(encoding="utf-8"))
     comparison = json.loads(MODEL_COMPARISON_PATH.read_text(encoding="utf-8")) if MODEL_COMPARISON_PATH.exists() else {}
-    error_analysis = json.loads(ERROR_ANALYSIS_PATH.read_text(encoding="utf-8")) if ERROR_ANALYSIS_PATH.exists() else {}
-
     test_report = comparison.get("test_report_only", {})
 
     summary_text = format_evaluation_summary(

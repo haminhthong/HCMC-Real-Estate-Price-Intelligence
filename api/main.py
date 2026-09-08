@@ -15,6 +15,7 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from src.artifacts.loader import load_production_model as load_model
 from src.config import (
+    CANONICAL_SPLIT_PROTOCOL,
     MODEL_VERSION,
     RESIDENTIAL_TYPES,
     ROOT_DIR,
@@ -313,7 +314,7 @@ def model_info() -> dict[str, Any]:
                 "supported_property_types",
                 RESIDENTIAL_TYPES,
             ),
-            "split_protocol": artifact.get("split_protocol", "grouped temporal 60/15/10/15"),
+            "split_protocol": artifact.get("split_protocol", CANONICAL_SPLIT_PROTOCOL),
             "prediction_interval_target_coverage": artifact.get("target_coverage", 0.8),
         }
     except (FileNotFoundError, ValueError) as exc:

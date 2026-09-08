@@ -1,637 +1,336 @@
 # HCMC Real Estate Price Intelligence
 
-> **Tài liệu hiện hành.** Các số liệu và mô tả trong những phần cũ bên dưới là
-> snapshot nghiên cứu trước đó; contract và luồng code hiện tại được chốt ở
-> phần này.
+[![Python Version](https://img.shields.io/badge/Python-3.10%2B-blue.svg)](https://www.python.org/)
+[![FastAPI](https://img.shields.io/badge/FastAPI-0.115-009688.svg)](https://fastapi.tiangolo.com/)
+[![Streamlit](https://img.shields.io/badge/Streamlit-1.40-FF4B4B.svg)](https://streamlit.io/)
+[![scikit--learn](https://img.shields.io/badge/scikit--learn-1.5%2B-F7931E.svg)](https://scikit-learn.org/)
+[![License](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 
 Hệ thống ước lượng **giá niêm yết tham khảo** cho bất động sản nhà ở tại
-TP.HCM. Kết quả không phải giá giao dịch, thẩm định giá pháp lý hay khuyến
-nghị đầu tư.
+TP.HCM. Kết quả là giá chào bán dự kiến từ dữ liệu tin đăng, không phải giá
+giao dịch thực tế, thẩm định pháp lý, tư vấn tín dụng hoặc khuyến nghị đầu tư.
 
-## Contract hiện hành
+README này là tài liệu hiện hành duy nhất của dự án. Bản README lịch sử được
+lưu tại [`docs/archive/README_v1.md`](docs/archive/README_v1.md) để tra cứu,
+không dùng làm contract của code hiện tại.
 
-- Diện tích hỗ trợ: **5–500 m²**; giá mục tiêu: **100–50.000 triệu VND**.
-- Target canonical: `log1p(Price)` trên tổng giá niêm yết.
-- Ngày thiếu không được gán ngày crawl giả. Dùng `listing_date`, hoặc
-  `Scraped At` với `date_source=scrape_time_proxy`; nếu cả hai thiếu thì
-  `temporal_status=unknown` và không đưa vào temporal benchmark.
-- `property_group_id` là identity của căn nhà; `listing_event_id` là từng lần
-  rao. Các lần đăng lại khác ngày/giá được giữ lại.
-- Request không bắt buộc `Bedrooms`, vì missingness là một phần của contract.
+## 1. Bài toán và phạm vi ứng dụng
 
-## Luồng code hiện tại
+### Bài toán
+
+Từ dữ liệu tin đăng bất động sản, hệ thống cần:
+
+- Chuẩn hóa schema, provenance, ngày đăng và phạm vi thị trường.
+- Nhận diện cùng một bất động sản nhưng vẫn giữ lại các lần đăng lại hợp lệ.
+- Đánh giá mô hình theo thời gian, không để cùng một bất động sản xuất hiện ở
+  nhiều tập dữ liệu.
+- Trả về giá điểm, khoảng dự báo conformal, comparables và mức độ tin cậy.
+- Lưu artifact có version, checksum và trạng thái release rõ ràng.
+
+### Phạm vi hiện tại
+
+| Hạng mục | Contract |
+| --- | --- |
+| Khu vực | Các quận/huyện nằm trong `SUPPORTED_AREAS` của [`src/config.py`](src/config.py) |
+| Loại hình | Các loại nhà ở nằm trong `RESIDENTIAL_TYPES` |
+| Diện tích | `5–500 m²` |
+| Giá mục tiêu | `100–50.000 triệu VND` theo giá niêm yết |
+| Target canonical | `log1p(Price)` trên tổng giá niêm yết |
+| Ngày thiếu | Không tự gán ngày crawl; dòng không có ngày bị loại khỏi temporal benchmark |
+| Missingness | Được giữ thành các feature indicator và dùng trong model |
+| Trạng thái release hiện tại | `research_only`; production pointer chỉ thay đổi khi Release Gate đạt |
+
+Hệ thống không dùng cho định giá pháp lý, thế chấp, tranh chấp tài sản hoặc
+quyết định đầu tư tự động.
+
+## 2. Luồng dữ liệu và luồng kỹ thuật canonical
+
+Điểm cốt lõi của dự án là **identity + deduplication + provenance +
+point-in-time evaluation**. ExtraTrees chỉ là một thành phần trong toàn bộ
+chuỗi kiểm soát dữ liệu.
+
+```mermaid
+flowchart TD
+    A[Raw listings CSV/Parquet] --> B[Schema validation]
+    B --> C[Market scope and numeric validation]
+    C --> D[Date and provenance normalization]
+    D --> E[Property identity resolution]
+    E --> F[Listing event deduplication]
+    F --> G[Canonical clean dataset]
+    G --> H[Canonical grouped temporal split]
+    H --> H1[Train 60%]
+    H --> H2[Validation 15%]
+    H --> H3[Calibration 10%]
+    H --> H4[Locked Future Test 15%]
+    H1 --> I[Train-only FeatureContext]
+    H2 --> J[Candidate model selection]
+    I --> J
+    J --> K[Refit champion on Train plus Validation]
+    K --> L[Conformal calibration on Calibration]
+    L --> M[Locked Test evaluation]
+    K --> N[Comparable reference context]
+    N --> O[Price Intelligence response]
+    M --> P[Development Gate and Release Gate]
+    P --> Q[Immutable candidate artifact]
+    Q --> R{Release Gate passed?}
+    R -->|Yes| S[Update production pointer]
+    R -->|No| T[Keep research_only and old production]
+```
+
+### Canonical split duy nhất
+
+Protocol được `src/pipeline.py` chạy mặc định là:
 
 ```text
-raw snapshot
-  -> schema + market-scope validation
-  -> date/provenance normalization
-  -> strong/medium identity matching
-  -> weak duplicate audit, không tự union
-  -> listing-event deduplication
-  -> grouped temporal split 60/15/10/15
-  -> Train-only FeatureContext
-  -> naive/Ridge/regularized ExtraTrees selection
-  -> log-price refit
-  -> split-conformal calibration
-  -> locked Test evaluation
-  -> Development Gate + Release Gate độc lập
-  -> immutable candidate artifact
-  -> chỉ promote production khi Release Gate đạt
+grouped_temporal_split_60_15_10_15_by_latest_group_listing_date
 ```
 
-`src/data/split.py` cũng cung cấp `split_canonical_temporal_purged()` cho
-Development/Calibration/Locked Future Test 70/10/20. Hàm này purge property
-đã xuất hiện ở block trước khỏi block sau; ngày unknown bị loại khỏi benchmark.
+| Tập | Tỷ lệ | Mục đích | Quyền sử dụng |
+| --- | ---: | --- | --- |
+| Train | 60% | Fit feature context, candidate models và baseline | Được train |
+| Validation | 15% | Chọn champion và target formulation | Chỉ dùng cho Development Gate |
+| Calibration | 10% | Tính residual quantile conformal | Không dùng chọn model |
+| Locked Future Test | 15% | Đánh giá release độc lập cuối cùng | Không quay ngược để tune model |
 
-## Identity và anti-leakage
+Các group được sắp theo ngày listing muộn nhất. Toàn bộ listing của cùng một
+`property_group_id` đi vào cùng một split. Ngày unknown không bị coi là ngày
+mới nhất.
 
-`src/data/identity.py` dùng ba mức bảo thủ:
+`split_canonical_temporal_purged()` trong [`src/data/split.py`](src/data/split.py)
+là **alternative experiment** 70/10/20 (Development/Calibration/Locked Future
+Test), không phải protocol mà master pipeline đang chạy. Nó được giữ để so
+sánh nghiên cứu, không được gọi là canonical trong báo cáo release.
 
-1. `strong`: cùng source/listing id, hoặc cùng địa chỉ chuẩn hóa, loại hình,
-   diện tích lệch tối đa 3% và không mâu thuẫn GPS/kết cấu.
-2. `medium`: không GPS nhưng cùng area/ward/street, loại hình, diện tích lệch
-   tối đa 5% và kết cấu tương thích.
-3. `weak`: chỉ ghi `possible_duplicate=true`; không tự động gộp.
+### Chi tiết identity và listing event
 
-Giá, ngày đăng và môi giới không được dùng để tạo identity vật lý. Đây là nền
-tảng của group-isolated split.
+- `property_group_id`: identity vật lý của bất động sản.
+- `listing_event_id`: một lần rao cụ thể.
+- `strong`: source/listing ID hoặc match địa chỉ, loại hình, diện tích và GPS
+  với điều kiện chặt.
+- `medium`: match bảo thủ theo area/ward/street, loại hình, diện tích và kết
+  cấu khi thiếu GPS.
+- `weak`: chỉ ghi `possible_duplicate=true`, không tự động union.
+- Cùng nhà đăng lại ở ngày hoặc giá khác nhau vẫn được giữ lại để không làm mất
+  tín hiệu thời gian.
 
-## Feature, model và evidence
+### Feature và model contract
 
-- Feature builder dùng chung cho training/serving, gồm kết cấu, địa lý, text
-  flags có xử lý phủ định và 8 missingness indicators.
-- `FeatureContext` lưu danh sách cột, `reference_date` và schema version.
-- ExtraTrees được regularize với `min_samples_leaf=5`, `max_features=0.8`.
-- Conformal interval dùng residual toàn cục trên log-space; không thu hẹp
-  khoảng chỉ để giao diện đẹp.
-- Comparable là evidence, không phải estimator: loại trừ cùng property, chỉ
-  dùng listing quá khứ, lookback tối đa 365 ngày và area ưu tiên trong ±25%.
-- Comparable benchmark fit context từ Train-only; serving context sau refit
-  được fit trên Train+Validation.
+Training và serving đều dùng [`build_features()`](src/features/builder.py) với
+`FeatureContext` đã đóng băng:
 
-## Serving và release governance
+- số: diện tích, phòng, tầng, kích thước, GPS, khoảng cách CBD, độ đầy đủ;
+- phân loại: loại hình, khu vực, hướng, vị trí;
+- text flags: nội thất, hẻm xe hơi, gần chợ, gần trường, bán gấp;
+- missingness indicators: GPS, kích thước, phòng, tầng, loại đường và hẻm;
+- target canonical: `log1p(total_price)`;
+- candidate hiện tại: Naive median, Ridge và ExtraTrees regularized.
 
-API gồm `GET /health`, `GET /model-info`, `POST /predict`, `POST /explain` và
-`GET /market/districts`. Server luôn tự resolve `as_of_date` theo múi giờ
-TP.HCM khi request không truyền ngày. Response ghi `valuation_as_of`,
-`model_market_reference`, `market_age_days`, `model_status` và cảnh báo
-`STALE_MARKET_MODEL` khi model cũ hơn 180 ngày.
+Comparables là **evidence**, không phải estimator chính. Khi đánh giá offline,
+comparables chỉ được lấy từ Train và phải có listing date không muộn hơn ngày
+định giá; khi serving, reference context được fit sau refit từ Train +
+Validation.
 
-Writer không ghi đè version đã tồn tại. Candidate mới được lưu vào
-`models/candidate.json`; `models/production.json` chỉ được cập nhật khi
-Release Gate đạt. Loader đọc đúng active bundle, kiểm tra checksum và
-fail-closed; không âm thầm fallback sang legacy joblib.
+## 3. Data-quality funnel
 
-## Chạy dự án
-
-```powershell
-pip install -r requirements-dev.txt
-python -m src.pipeline train --version 1.3.0
-uvicorn api.main:app --reload --port 8000
-streamlit run app/streamlit_app.py
-python -m pytest -q
+```mermaid
+flowchart LR
+    A[Raw listings\n2,500] --> B[Market scope valid\n727]
+    B --> C[Identity resolved\n723 events]
+    C --> D[Exact duplicate events removed\n4 removed]
+    D --> E[Clean listing events\n723]
+    E --> F[Temporal eligible\n723 known-date]
+    F --> G[Canonical model dataset\nTrain / Val / Calib / Test]
 ```
 
-Phạm vi source chính: `src/data`, `src/features`, `src/modeling`,
-`src/calibration`, `src/comparables`, `src/reliability`, `src/serving`,
-`src/artifacts`, `api` và `tests`. Xem các module tương ứng để biết schema
-chi tiết; không dùng các metric snapshot cũ bên dưới làm contract mới.
-
----
-
-## Tài liệu snapshot cũ
-
-
-![Python](https://img.shields.io/badge/Python-3.11%2B-blue?logo=python)
-![FastAPI](https://img.shields.io/badge/FastAPI-0.115-009688?logo=fastapi)
-![Streamlit](https://img.shields.io/badge/Streamlit-1.40-FF4B4B?logo=streamlit)
-![Scikit-Learn](https://img.shields.io/badge/Scikit--Learn-1.5%2B-F7931E?logo=scikit-learn)
-![Pytest](https://img.shields.io/badge/Pytest-Passing-0A9EDC?logo=pytest)
-![Production Readiness](https://img.shields.io/badge/Status-Research--Only-orange)
-![License](https://img.shields.io/badge/License-MIT-green)
-
-> **Platform Positioning & Scope Definition**:  
-> **HCMC Residential Listing Price Intelligence Platform** là hệ thống ước lượng **giá niêm yết tham khảo (asking/listing price)** cho bất động sản nhà ở tại TP.HCM. Thay vì chỉ trả về một con số giá đơn độc ("AI định giá chính xác căn nhà"), nền tảng cung cấp một bộ giải pháp định giá đa chiều: **Ước lượng giá (Valuation) + Khoảng tin cậy Conformal (Uncertainty) + Bối cảnh thị trường (Market Context) + Bất động sản tham chiếu (Comparables) + Rào chắn độ tin cậy (Domain & Reliability Guardrails)**.
-
----
-
-## 1. Problem Framing & Real Estate Boundaries
-
-Hệ thống được thiết kế để giải quyết bài toán định giá tham khảo cho bất động sản nhà ở dân dụng tại TP.HCM (Nhà riêng, Nhà mặt tiền, Căn hộ chung cư, Biệt thự liền kề) dựa trên nguồn tin rao trực tuyến:
-
-- **Bản chất dữ liệu tin rao**: Nguồn thu thập từ các sàn bất động sản là **giá niêm yết / giá chào bán (asking/listing price)**, **không phải giá giao dịch chốt thực tế (transacted price)**. Dữ liệu thực tế mang tính phân tán cao, nhiều tin trùng lặp từ nhiều môi giới, phân phối giá lệch phải nặng (long-tail skew) và phương sai lớn ở phân khúc cao cấp.
-- **Tính minh bạch về sai số (No Masking Metrics)**:  
-  Mô hình hiện ở trạng thái **`research_only`**:
-  - Test MAE: **4.62 tỷ VND**
-  - Test WAPE: **42.92%**
-  - Test $R^2$: **0.134**
-  - Conformal Interval (80% target): Đạt coverage thực tế **84.4%**, nhưng bề rộng trung bình khoảng dự báo lên tới **12.62 tỷ VND** (độ rộng tương đối $\approx 117\%$).  
-  *Chính mức độ bất định cố hữu này là lý do cốt lõi hệ thống bắt buộc phải có Reliability Guards + Comparables Context + Conformal Interval thay vì chỉ trả về một con số dự báo điểm đơn thuần.*
-
-### 📌 Phân Định Biên Giới Sử Dụng (In-Scope vs Out-of-Scope)
-
-| Phù Hợp Sử Dụng (In-Scope) | KHÔNG Dùng Cho (Out-of-Scope) |
-| :--- | :--- |
-| ✅ **Người mua nhà**: Tham khảo khoảng dao động giá hợp lý và bối cảnh các căn tương đồng trước khi đàm phán. | ❌ Thẩm định giá pháp lý để cấp tín dụng / thế chấp ngân hàng |
-| ✅ **Người bán / Môi giới**: Đối chiếu giá niêm yết dự kiến với mặt bằng trung vị phân khúc và các căn tương đồng lịch sử. | ❌ Giám định tranh chấp tài sản, phân chia thừa kế trước tòa án |
-| ✅ **Nhà phân tích dữ liệu**: Theo dõi biến động đơn giá trung vị (triệu VND/m²) theo quận/huyện và cự ly tới CBD. | ❌ Thuật toán tự động hóa đặt lệnh đầu tư tài chính phái sinh |
-
----
-
-## 2. Canonical Pipelines
-
-### A. Offline Development Pipeline (11 Steps)
-
-```text
-                 RAW PROPERTY LISTINGS (2,500 listings)
-                         ↓
-1. DATA INGESTION & SNAPSHOT
-   ├── source: data_public_sample.csv
-   ├── schema validation & types
-   └── snapshot manifest
-                         ↓
-2. DATA QUALITY & AUDIT
-   ├── predefined target-aware market scope rules:
-   │   • Price ∈ [100M, 50B VND] (phạm vi thị trường hỗ trợ)
-   │   • Area ∈ [5, 500 m²], Đơn giá >= 10M/m²
-   └── supported residential types (727 valid listings)
-                         ↓
-3. PROPERTY IDENTITY RESOLUTION
-   ├── Multi-level matching:
-   │   • Level 1 Strong: Exact normalized address + GPS within tolerance
-   │   • Level 2 Medium: Location + Property Type + Area (±5%) + Compatible Beds/Baths
-   │   • Level 3 Weak: Area block + Structural similarity
-   └── Union-Find clustering → property_group_id (707 unique groups)
-                         ↓
-4. LISTING DEDUPLICATION
-   ├── Drop exact duplicate listings (subset: property_group_id, date, Price): -4 rows
-   └── Preserve legitimate relistings (723 clean listings across 707 groups)
-                         ↓
-5. GROUP-ISOLATED TEMPORAL ORDERING SPLIT
-   Property groups ordered by latest listing date (60% / 15% / 10% / 15%)
-      ↓
-   Train (436 rows, 424 groups)
-   Validation (106 rows, 106 groups)
-   Calibration (72 rows, 70 groups)
-   Locked Test (109 rows, 107 groups)
-                         ↓
-6. SHARED FEATURE CONTRACT
-   ├── Structural: Area, Width, Length, Bedrooms, Bathrooms, Floors, Alley Width
-   ├── Geospatial: Lat, Lon, distance_to_cbd_km
-   ├── Text Signals: Regex heuristics with Vietnamese negation handling
-   ├── Missingness Indicators: *_missing boolean features
-   └── Temporal Contract: as_of_date / market_time_offset_days (no clip lower=0)
-                         ↓
-7. MODEL DEVELOPMENT & CANDIDATE BENCHMARK
-   ├── Naive Global Median
-   ├── District x Type Segment Median
-   ├── Ridge Regression
-   ├── Random Forest
-   ├── HistGradientBoosting
-   └── ExtraTrees Regressor
-                         ↓
-   Validation-Only Selection (Development Gate: ExtraTrees on Total Price)
-                         ↓
-8. FINAL REFIT
-   Refit Champion on Train + Validation (542 listings)
-                         ↓
-9. UNCERTAINTY CALIBRATION
-   Calibration Set (72 listings) → Split Conformal in Log-Residual Space
-                         ↓
-10. RELEASE EVALUATION
-   Locked Test Set (109 listings)
-   ├── Metrics: MAE, Median AE, RMSE, R², MAPE, WAPE, sMAPE
-   ├── Conformal: Actual Coverage (84.4%), Mean/Median Width
-   ├── Granular Slices: Price Tier, Completeness, District, CBD Distance
-   └── Release Gate Evaluation (Decision: research_only)
-                         ↓
-11. VERSIONED ARTIFACT GENERATION
-   Model (.joblib) + Feature Context + Calibration Residuals
-   + Comparable Context + Metrics + Manifests
-```
-
-### B. Online Serving Architecture (5-Pillar Structured Intelligence)
-
-```text
-Property Request (JSON) with optional as_of_date
-      ↓
-Input Contract Validation (Pydantic)
-      ↓
-Shared Feature Builder (as_of_date → market_time_offset_days, completeness score)
-      ↓
-Domain & Reliability Guardrails
-(P01–P99 Quantiles, Low-Support Segment, P90 Luxury Tier, Temporal Extrapolation)
-      ↓
-Champion Model (ExtraTrees)
-      ↓
-Point Listing-Price Estimate (Triệu VND)
-      ↓
-Asymmetric Conformal Prediction Interval (80% target coverage)
-      ↓
-Multi-dimensional Comparable Property Retrieval (Top-K comps from Train Index)
-      ↓
-Market Context (Segment Median, Comparable Median)
-      ↓
-SHAP TreeExplainer (Feature contributions on log-target)
-      ↓
-Structured Intelligence Response
-┌──────────────────────────────────────────────────────────┐
-│ 1. VALUATION       : Point estimate (Triệu VND)          │
-│ 2. UNCERTAINTY     : Asymmetric 80% prediction interval  │
-│ 3. MARKET CONTEXT  : Segment & comp median benchmarks    │
-│ 4. COMPARABLES     : Top-5 nearest historical listings   │
-│ 5. RELIABILITY     : Multi-factor risk & guard warnings  │
-└──────────────────────────────────────────────────────────┘
-```
-
----
-
-## 3. Data Audit, Target-Aware Scope & Multi-Level Identity
-
-### A. Bảng Kiểm Toán Truy Nguyên Dữ Liệu (Data Audit Trail)
-
-Toàn bộ chỉ số được trích xuất trực tiếp từ artifact kiểm định `artifacts/data_card.json`:
-
-```text
-2,500 Raw Listings (data_public_sample.csv)
-   │
-   ├─► Loại bỏ loại hình không hỗ trợ (Đất nền, kho xưởng, mặt bằng...): -1,587 rows
-   │
-   ├─► Predefined Target-Aware Validity Rules (Phạm vi thị trường): -186 rows
-   │   • Price ∉ [100 triệu, 50 tỷ VND]
-   │   • Area ∉ [5 m², 500 m²]
-   │   • Đơn giá < 10 triệu/m²
-   │   • Kích thước / phòng ngủ / số tầng phi thực tế
-   │   • Tọa độ ngoài ranh giới TP.HCM (Lat: 10.3–11.2, Lon: 106.3–107.0)
-   │   (Ngưỡng được chốt cố định theo nghiệp vụ trước thử nghiệm, không tinh chỉnh trên Val/Test)
-   │
-   ├─► Valid Listings: 727 bản ghi
-   │
-   ├─► Listing Deduplication: -4 bản ghi trùng lặp tuyệt đối (cùng property_group, ngày đăng, giá)
-   │
-   └─► 723 Clean Listings
-       │
-       ▼
-   707 Inferred Unique Property Groups (15 nhóm có nhiều tin đăng, lớn nhất 3 tin/nhóm, 692 singletons)
-```
-
-### B. Giải Quyết Danh Tính Tài Sản (Multi-Level Property Identity Resolution)
-
-Thay vì băm chuỗi cứng (exact hash heuristic) dễ gây **false merge** (khi thuộc tính khuyết thiếu cao: Width thiếu 53%, Length thiếu 65%, Bathrooms thiếu 49%, GPS thiếu 73%), hệ thống ứng dụng mô hình phân giải danh tính 3 tầng kết hợp giải thuật **Union-Find**:
-
-1. **Level 1 — Strong Match**:
-   - Cùng địa chỉ chuẩn hóa (normalized address) và tọa độ GPS trong bán kính dung sai ($\approx 20\,\text{m}$).
-2. **Level 2 — Medium Match**:
-   - Cùng khu vực (location_area / quận), cùng loại hình, diện tích chênh lệch $\le 5\%$, số phòng ngủ/vệ sinh tương thích.
-3. **Level 3 — Weak Match**:
-   - Cùng phân khu địa lý, tương đồng kết cấu cao và độ tương đồng văn bản/mô tả cao.
-
-Mỗi nhóm tài sản được gắn nhãn `identity_confidence` (`strong`, `medium`, `weak`, `singleton`), cho phép kiểm toán minh bạch:
-- Số nhóm bất động sản: **707**
-- Nhóm có $>1$ tin đăng: **15 nhóm** (14 nhóm 2 tin, 1 nhóm 3 tin)
-- Nhóm lớn nhất: **3 tin đăng**
-
----
-
-## 4. Group-Isolated Temporal Ordering Split Semantics
-
-Dữ liệu được phân chia theo quy tắc **Group-Isolated Temporal Ordering Split**:
-1. Nhóm toàn bộ 723 tin đăng theo 707 `property_group_id`.
-2. Lấy ngày đăng mới nhất của mỗi nhóm (`latest listing_date per group`).
-3. Sắp xếp 707 nhóm theo thứ tự thời gian tăng dần và phân bổ theo tỷ lệ **60% / 15% / 10% / 15%**.
-4. Toàn bộ các tin đăng của cùng một nhóm tài sản bắt buộc nằm trọn vẹn trong cùng một tập dữ liệu.
-
-### Bảng Phân Bổ Mẫu và Nhóm Tài Sản
-
-| Tập Dữ Liệu | Tỷ Lệ Nhóm | Số Nhóm Tài Sản (`property_group_id`) | Số Lượng Bản Ghi (`rows`) | Vai Trò Kỹ Thuật |
-| :--- | :---: | :---: | :---: | :--- |
-| **Train Set** | 60% | **424** | **436** | Fit tham số mô hình, feature encoders, reference index |
-| **Validation Set** | 15% | **106** | **106** | Đánh giá & lựa chọn Champion Model (Development Gate) |
-| **Calibration Set** | 10% | **70** | **72** | Hiệu chuẩn khoảng bất định (Split Conformal Residuals) |
-| **Locked Test Set** | 15% | **107** | **109** | Đánh giá độc lập một lần duy nhất (Release Gate) |
-| **Tổng Cộng** | 100% | **707** | **723** | Bảo đảm 100% không rò rỉ nhóm giữa các tập |
-
-> ⚠️ **Làm Rõ Ngữ Nghĩa (Important Semantic Note)**:  
-> Đây là **Group-isolated temporal ordering split**, không phải *strict row-level temporal split*. Nếu một căn nhà đăng tin lần đầu vào tháng 5 và cập nhật lần cuối vào tháng 9, toàn bộ lịch sử đăng của căn nhà đó sẽ đi theo mốc tháng 9 vào tập sau. Thiết kế này ưu tiên tối thượng việc **chống rò rỉ thông tin cùng tài sản giữa Train và Test**.
-
-### Thử Nghiệm Kiểm Soát Trượt Thời Gian (Protocol B: Strict Temporal Holdout)
-
-Để đo lường tác động của **Market Temporal Drift**, hệ thống cung cấp thêm giao thức `split_strict_temporal_purged()`:
-- Đặt điểm cắt thời gian tuyệt đối ($T_{\text{cutoff}}$).
-- Train $\le T_{\text{cutoff}}$, Test $> T_{\text{cutoff}}$.
-- **Purging**: Loại bỏ triệt để mọi property group xuất hiện ở cả 2 khoảng thời gian khỏi tập Test.
-
----
-
-## 5. Feature Contract & Missingness Indicators
-
-Hệ thống tuân thủ hợp đồng đặc trưng nghiêm ngặt trong `src/features/builder.py`:
-
-1. **Chỉ Báo Khuyết Thiếu Có Chủ Đích (Missingness Indicators)**:
-   - Thay vì chỉ điền trung vị đơn thuần (làm mất thông tin về việc môi giới không khai báo), hệ thống tạo thêm 8 cờ nhị phân: `gps_missing`, `width_missing`, `length_missing`, `bedrooms_missing`, `bathrooms_missing`, `floors_missing`, `road_type_missing`, `alley_width_missing`.
-2. **Chuẩn Hóa Temporal Contract (`as_of_date` / `market_time_offset_days`)**:
-   - Tách biệt rõ giữa `listing_date` (ngày đăng lịch sử trong train data) và `as_of_date` / `valuation_date` (ngày người dùng yêu cầu định giá).
-   - `market_time_offset_days = (as_of_date - train_reference_date).days`.
-   - Không dùng hàm `.clip(lower=0)`. Nếu `as_of_date` cách xa dữ liệu huấn luyện (> 180 ngày), hệ thống kích hoạt cảnh báo `TEMPORAL_EXTRAPOLATION`.
-3. **Độ Hoàn Thiện Dữ Liệu (`input_completeness_score`)**:
-   - Sử dụng chuẩn mực `input_completeness_score` (đã loại bỏ hoàn toàn alias cũ `data_quality_score`).
-4. **NLP Text Signals Có Xử Lý Từ Phủ Định (Negation Handling)**:
-   - Nhận diện phủ định tiếng Việt (`không|chưa|chẳng|ko` + `có|nội thất|ô tô`).
-
----
-
-## 6. Model Development & Validation Benchmark
-
-Hệ thống so sánh 6 thuật toán cùng 2 cách đặt biến mục tiêu **chỉ trên tập Validation** (`artifacts/model_comparison.json`):
-
-| Thuật Toán / Đường Cơ Sở | Biến Mục Tiêu | Val MAE (Triệu VND) | Val Median AE | Val RMSE | Val $R^2$ | Val MAPE | Val WAPE | Trạng Thái Lựa Chọn |
-| :--- | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: |
-| **Naive Global Median** | Total Price | 3,801.1 | 2,200.0 | 6,814.6 | -0.135 | 53.25% | 49.69% | Baseline |
-| **District x Type Segment Median** | Segment Unit | 3,759.4 | 2,212.5 | 6,415.2 | -0.006 | 57.52% | 49.14% | Baseline |
-| **Ridge Linear Regression** | Total Price | 5,901.9 | 1,623.0 | 21,287.5 | -10.076 | 66.51% | 77.15% | Candidate |
-| **Random Forest** | Total Price | 4,230.4 | 2,061.8 | 6,630.7 | -0.075 | 87.31% | 55.30% | Candidate |
-| **HistGradientBoosting** | Total Price | 5,605.9 | 4,181.7 | 7,519.1 | -0.382 | 119.98% | 73.28% | Candidate |
-| **ExtraTrees Regressor 🏆** | **Total Price** | **3,438.6** | **2,099.2** | **5,295.2** | **0.315** | **63.64%** | **44.95%** | **Selected Champion** |
-| *ExtraTrees (Price / m²)* | Price / m² | 5,115.7 | 2,050.2 | 8,535.2 | -0.781 | 84.37% | 66.87% | Formulation B |
-
-> **Quyết Định Lựa Chọn (Champion Selection)**:  
-> **ExtraTrees Regressor trên Total Price** được lựa chọn làm Champion vì đạt Val MAE thấp nhất ($3,438.6$ triệu VND), vượt cả Naive Baseline lẫn Segment Baseline, và duy trì $R^2 = 0.315$.
-
----
-
-## 7. Two-Gate Governance & Release Evaluation
-
-Hệ thống phân tách rành mạch 2 cấp cổng quản trị để bảo vệ tính toàn vẹn của tập Test:
-
-```text
-       Validation Split Benchmark
-                  ↓
-       [ DEVELOPMENT GATE ]
-       • Champion Val MAE < Baseline MAE (Cải thiện >= 10%)
-       • Val WAPE <= 35%
-                  ↓
-         Pass? ──► Freeze Champion Model & Refit on Train+Val
-                  ↓
-       [ RELEASE GATE ] (Locked Test Split - Evaluated ONCE)
-       • Test WAPE <= 30%
-       • Conformal Coverage >= 75%
-       • Interval Mean Width <= 10,000M
-                  ↓
-         Result: RESEARCH_ONLY (Không đủ điều kiện Autonomous Production)
-```
-
-> 🛡️ **Nguyên Tắc Bất Di Bất Dịch (Release Governance Rule)**:  
-> Khi Release Gate trả về `research_only`, **nghiêm cấm tinh chỉnh siêu tham số mô hình dựa trên kết quả của tập Test**. Tập Test chỉ có chức năng phản ánh trung thực năng lực tổng quát hóa.
-
-### Kết Quả Đánh Giá Trên Tập Locked Test (109 Listings)
-
-Số liệu từ `artifacts/metrics.json` và `artifacts/model_comparison.json`:
-
-| Chỉ Số Đánh Giá | Naive Median Baseline | Segment Median Baseline | ExtraTrees Champion | Ý Nghĩa Thực Tế |
-| :--- | :---: | :---: | :---: | :--- |
-| **MAE (Triệu VND)** | 6,255.1 | 5,963.1 | **4,621.7** | Champion giảm sai số **26.1%** so với Naive |
-| **Median AE (Triệu VND)** | 3,325.0 | 2,975.0 | **2,157.4** | Sai số trung vị thực tế $\approx 2.16$ tỷ |
-| **RMSE (Triệu VND)** | 10,033.9 | 9,846.0 | **7,874.0** | Độ lệch phương sai giảm rõ rệt |
-| **$R^2$ Score** | -0.407 | -0.354 | **0.134** | Giải thích được 13.4% biến thiên giá rao |
-| **MAPE (%)** | 54.03% | 49.49% | **35.96%** | Tỷ lệ sai số phần trăm trung bình |
-| **WAPE (%)** | 58.08% | 55.37% | **42.92%** | Sai số phần trăm trọng số theo quy mô giá |
-| **sMAPE (%)** | 60.33% | 55.97% | **40.54%** | Sai số phần trăm đối xứng |
-| **Target Conformal Coverage** | N/A | N/A | **80.0%** | Mức độ bao phủ danh nghĩa kỳ vọng |
-| **Actual Test Coverage** | N/A | N/A | **84.40%** | **Đạt và vượt kỳ vọng bao phủ** (92/109 mẫu) |
-| **Mean Interval Width** | N/A | N/A | **12,621.6M** | Khoảng mở rộng trung bình 12.62 tỷ VND |
-| **Relative Interval Width** | N/A | N/A | **1.172** | Bề rộng khoảng gấp 1.17 lần giá trị ước lượng |
-| **Production Readiness** | — | — | **`research_only`** | Bắt buộc kèm rào chắn và tài sản so sánh |
-
----
-
-## 8. Granular Slice & Uncertainty Analysis
-
-Phân tích chi tiết tập Test theo các lát cắt từ `artifacts/error_analysis.json`:
-
-### A. Theo Tầm Giá (Price Range Slices)
-
-| Lát Cắt Giá | Số Mẫu | Mean MAE (Triệu VND) | Median MAE | WAPE (%) | Conformal Coverage (Target 80%) | Mean Interval Width | Nhận Định Vận Hành |
-| :--- | :---: | :---: | :---: | :---: | :---: | :---: | :--- |
-| **< 5 tỷ VND** | 23 | **1,061.3** | **717.8** | **31.79%** | **86.96%** | 7,164.4 triệu | Rất ổn định, độ tin cậy cao |
-| **5 – 10 tỷ VND** | 47 | **1,848.4** | **1,293.1** | **25.11%** | **100.0%** | 11,854.6 triệu | **Phân khúc tối ưu nhất (WAPE 25%)** |
-| **10 – 15 tỷ VND** | 18 | 4,487.4 | 4,333.4 | 35.92% | **88.89%** | 15,387.3 triệu | Bao phủ tốt, phương sai bắt đầu tăng |
-| **> 15 tỷ VND** | 21 | 14,843.5 | 13,112.8 | 59.24% | 42.86% | 17,944.5 triệu | Phương sai cực lớn $\rightarrow$ Kích hoạt rào chắn |
-
-### B. Theo Độ Hoàn Thiện Dữ Liệu (`input_completeness_score`)
-
-| Điểm Hoàn Thiện | Số Mẫu | Mean MAE (Triệu VND) | Median MAE | WAPE (%) | Coverage (Target 80%) | Ý Nghĩa Thực Nghiệm |
-| :--- | :---: | :---: | :---: | :---: | :---: | :--- |
-| **>= 80% (Đầy đủ)** | 16 | **1,446.6** | **586.8** | **18.87%** | **100.0%** | **Đầy đủ dữ liệu cho sai số thấp nhất (WAPE < 19%)** |
-| **60 – 80% (Khá)** | 55 | 4,687.2 | 3,268.7 | 41.84% | 87.27% | Sai số ở mức trung bình |
-| **< 60% (Thiếu nhiều)** | 37 | 5,980.8 | 3,276.5 | 50.97% | 75.68% | Sai số tăng vọt, kích hoạt cảnh báo độ tin cậy thấp |
-
----
-
-## 9. Multi-Dimensional Comparable Properties Engine
-
-Hệ thống tách biệt động cơ tìm kiếm tài sản tương đồng thành module nghiệp vụ độc lập `src/comparables/`:
-
-### A. Công Thức Khoảng Cách Tương Đồng Đa Chiều
-
-$$d(x, c) = 0.30 \cdot d_{\text{area}} + 0.25 \cdot d_{\text{geo}} + 0.15 \cdot d_{\text{beds}} + 0.10 \cdot d_{\text{baths}} + 0.10 \cdot d_{\text{cbd}} + 0.10 \cdot d_{\text{recency}}$$
-
-- **Bộ Lọc Ứng Viên (Candidate Filters)**: Cùng loại hình bất động sản, cùng quận hoặc quận lân cận, **loại trừ chính nhóm tài sản đang xét (`exclude same property_group_id`)**.
-- **Chuẩn Hóa Thông Qua `ComparableContext`**: Lưu trữ các tham số tỷ lệ (median area, standard scale, CBD distance scale) được fit trên tập dữ liệu tham chiếu Train.
-- **Không Trộn Tùy Tiện (Strict Decoupling)**: Không tự ý phối hợp tỷ lệ 70% model + 30% comparables khi chưa được benchmark. Hệ thống trả song song cả 2 thông tin để người dùng đối chiếu.
-
-### B. Kiểm Chuẩn Độc Lập Offline (Validation Benchmark)
-
-Để chứng minh Comparable Engine thực sự tạo bối cảnh thị trường có ý nghĩa chứ không chỉ mang tính trang trí giao diện, hệ thống thực hiện kiểm chuẩn truy xuất Top-K trên tập Validation (các căn tương đồng chỉ được lấy từ Train):
-
-| Phương Pháp Định Vị | Val MAE (Triệu VND) | Val Median AE | Val WAPE (%) | Nhận Xét Kỹ Thuật |
-| :--- | :---: | :---: | :---: | :--- |
-| **Naive Global Median** | 3,801.1 | 2,200.0 | 49.69% | Baseline thô |
-| **Comparable Median (Top-K Comps)** | **3,760.5** | **1,997.5** | **49.15%** | **Cạnh tranh vượt trội Naive Median** |
-| **District x Type Segment Median** | 3,699.8 | 2,117.8 | 48.36% | Tham chiếu phân khúc khu vực |
-| **ExtraTrees ML Champion** | **3,438.6** | **2,099.2** | **44.95%** | Tận dụng phi tuyến tính vượt trội |
-
----
-
-## 10. Domain & Reliability Guardrails
-
-Thay vì chỉ kiểm tra ngoại lai toán học đơn thuần, `src/reliability/guards.py` áp dụng hệ thống rào chắn thực địa:
-
-1. **Phân Vị Robust P01 – P99**: Đánh giá các thuộc tính số so với phân vị 1% và 99% của tập Train.
-2. **Ngưỡng Hạng Sang Dựa Trên Phân Vị Mục Tiêu (`target_p90`)**: Thay vì hard-code con số 15 tỷ, hệ thống so sánh với phân vị P90 của dữ liệu huấn luyện (**22.74 tỷ VND**).
-3. **Phân Khúc Hỗ Trợ Kém (`LOW_SUPPORT_SEGMENT`)**: Tự động kích hoạt cảnh báo khi số lượng mẫu cùng loại hình và cùng quận trong tập huấn luyện nhỏ hơn 5 mẫu.
-4. **Ngoại Suy Thời Gian (`TEMPORAL_EXTRAPOLATION`)**: Kích hoạt cảnh báo khi `as_of_date` lệch quá 180 ngày so với mốc tin đăng tham chiếu.
-5. **Cấu Trúc Phân Rã Độ Tin Cậy (Decomposed Reliability)**:
-   - `overall`: `high` | `medium` | `low`
-   - `domain_support`: `in_domain` | `warning_ood`
-   - `interval_risk`: `tight` | `moderate` | `wide_interval`
-   - `input_completeness_score`: 0 – 100%
-
----
-
-## 11. API Specification & Structured Intelligence Response
-
-### A. Cấu Trúc 5 Trụ Cột (5-Pillar Response)
+Funnel được sinh lại trong `data_card.json` của mỗi run qua trường
+`data_quality_funnel`. Các con số trong sơ đồ là snapshot hiện hành của release
+đang được trỏ bởi `models/production.json`, không phải dữ liệu cố định cho mọi
+release sau này.
+
+## 4. Data Card hiện hành
+
+Nguồn duy nhất của metric release là
+[`reports/releases/v1.2.0/metrics.json`](reports/releases/v1.2.0/metrics.json).
+Data Card chi tiết được lưu ở [`artifacts/data_card.json`](artifacts/data_card.json)
+và được ghi lại cho từng run.
+
+| Trường | Giá trị hiện hành |
+| --- | ---: |
+| Snapshot | `data_public_sample.csv` |
+| Raw listings | 2.500 |
+| Market-scope valid | 727 |
+| Clean listing events | 723 |
+| Unique property groups | 707 |
+| Known-date listings | 723 |
+| Unknown-date listings | 0 |
+| District/area coverage | 21 khu vực trong artifact hiện hành |
+| Canonical split | 60 / 15 / 10 / 15 |
+| Model status | `research_only` |
+
+### Metric release hiện hành
+
+| Metric | Giá trị |
+| --- | ---: |
+| Test MAE | 4.621,7 triệu VND |
+| Test WAPE | 42,92% |
+| Test R² | 0,134 |
+| Conformal target coverage | 80% |
+| Conformal test coverage | 84,40% |
+| Relative interval width | 117,20% |
+| Release decision | `research_only` |
+
+README chỉ hiển thị metric của release hiện hành; các metric lịch sử nằm trong
+artifact/run tương ứng, không được dùng thay cho release hiện tại.
+
+## 5. Ví dụ response prediction
+
+Ví dụ dưới đây minh họa contract response, không phải kết quả cố định cho mọi
+input:
 
 ```json
 {
+  "predicted_price_million": 6850.0,
+  "lower_bound_million": 4300.0,
+  "upper_bound_million": 10800.0,
+  "confidence": "medium",
+  "model_version": "1.2.0",
+  "model_status": "research_only",
+  "valuation_as_of": "2026-09-08",
+  "model_market_reference": "2025-09-30T18:27:00",
+  "market_age_days": 343,
+  "reliability_level": "medium",
+  "warnings": ["STALE_MARKET_MODEL"],
   "valuation": {
-    "point_estimate_million": 7850.0,
+    "point_estimate_million": 6850.0,
     "prediction_interval": {
-      "lower_bound_million": 5420.0,
-      "upper_bound_million": 11350.0,
-      "target_coverage": 0.80
+      "lower_bound_million": 4300.0,
+      "upper_bound_million": 10800.0,
+      "target_coverage": 0.8
     }
-  },
-  "uncertainty": {
-    "target_coverage": 0.80,
-    "lower_bound_million": 5420.0,
-    "upper_bound_million": 11350.0,
-    "interval_width_million": 5930.0,
-    "relative_interval_width": 0.755
   },
   "market_context": {
-    "segment_median_unit_price_million_m2": 98.0,
-    "comparable_median_price_million": 7600.0,
-    "comparable_median_unit_price_million_m2": 95.0
+    "segment_median_unit_price_million_m2": 82.4,
+    "comparable_median_price_million": 7200.0,
+    "comparable_median_unit_price_million_m2": 86.0
   },
-  "comparables": [
-    {
-      "property_type": "Nhà riêng",
-      "location_area": "Quận 1",
-      "area": 78.0,
-      "price_million": 7500.0,
-      "unit_price_million_m2": 96.15,
-      "distance_km": 0.35,
-      "similarity_score": 0.94
-    }
-  ],
-  "reliability": {
-    "overall": "medium",
-    "reliability_level": "medium",
-    "input_completeness_score": 85.0,
-    "domain_support": "in_domain",
-    "interval_risk": "moderate",
-    "warnings": []
-  },
-  "model": {
-    "version": "1.2.0",
-    "model_type": "extra_trees",
-    "target_formulation": "total_price",
-    "production_readiness": "research_only"
-  }
+  "comparables": [],
+  "disclaimer": "Giá tham khảo từ tin đăng, không phải giá giao dịch hoặc thẩm định pháp lý."
 }
 ```
 
-### B. API Endpoints
+API endpoint:
 
-- `POST /predict`: Định giá bất động sản với hợp đồng 5 trụ cột đầy đủ (hỗ trợ trường `as_of_date`).
-- `GET /market/districts`: Trích xuất danh sách các quận/huyện được hỗ trợ kèm số lượng mẫu tham chiếu.
-- `GET /health`: Kiểm tra trạng thái sẵn sàng của dịch vụ và phiên bản mô hình nạp trong RAM.
+- `GET /health`
+- `GET /model-info`
+- `POST /predict`
+- `POST /explain`
+- `GET /market/districts`
 
----
-
-## 12. Cấu Trúc Dự Án (Repository Structure)
+## 6. Cấu trúc thư mục dự án
 
 ```text
 hcmc-real-estate-price-intelligence/
-├── api/                        # FastAPI Serving Layer
-│   ├── main.py                 # REST endpoints (/predict, /market/districts, /health)
-│   └── schemas.py              # Pydantic Input/Output contracts
-├── app/                        # Streamlit Interactive Web Application
-│   └── streamlit_app.py
-├── artifacts/                  # Versioned Run Artifacts
-│   ├── data_card.json          # Data lineage, group audits & gate decisions
-│   ├── metrics.json            # Final Locked Test evaluation metrics
-│   ├── model_comparison.json   # Full validation candidate benchmarks
-│   ├── error_analysis.json     # Granular slice reports
-│   └── comparable_context.json # Fitted scaler and segment context
-├── configs/                    # Declarative configuration specs
-│   └── data_contract.yaml
-├── data/                       # Data snapshots & schemas
-│   └── sample/data_public_sample.csv
-├── models/                     # Serialized Model Artifacts
-│   └── price_model.joblib      # Production bundle (Model + Context + Conformal)
-├── src/                        # Core Domain & Engineering Modules
-│   ├── artifacts/              # Schema & persistence writers
-│   ├── calibration/            # Split Conformal Prediction engine
-│   ├── comparables/            # Dedicated Comparable Retrieval Engine
-│   │   ├── context.py          # ComparableContext fit & serialization
-│   │   ├── engine.py           # Multi-dimensional weighted similarity
-│   │   └── evaluator.py        # Offline validation benchmark
-│   ├── data/                   # Ingestion, cleaning, identity, split
-│   │   ├── cleaning.py         # Target-aware market scope rules
-│   │   ├── identity.py         # Multi-level Union-Find identity resolution
-│   │   ├── split.py            # Group-isolated temporal ordering split
-│   │   └── loader.py
-│   ├── evaluation/             # Metrics & granular slice analysis
-│   ├── features/               # Feature contracts, indicators & temporal
-│   │   ├── builder.py          # Canonical FeatureBuilder with missingness
-│   │   ├── context.py          # FeatureContext fitted scalers
-│   │   └── temporal.py         # as_of_date & market_time_offset_days
-│   ├── modeling/               # Training, candidate baselines & refit
-│   ├── reliability/            # Domain & Reliability Guardrails
-│   │   └── guards.py           # P01-P99, P90 luxury, temporal extrapolation
-│   ├── serving/                # Real-time predictor & backward wrappers
-│   └── pipeline.py             # End-to-end master pipeline CLI
-└── tests/                      # Pytest Test Suites (Unit, Split, Lifecycle, API)
+├── api/                         # FastAPI schemas và endpoints
+├── app/                         # Streamlit UI
+├── data/
+│   └── sample/                  # Dataset mẫu dùng để chạy thử
+├── docs/
+│   └── archive/                 # Tài liệu lịch sử, không phải contract hiện hành
+├── models/
+│   ├── v<version>/              # Bundle immutable: model, context, calibration
+│   ├── production.json          # Pointer active production release
+│   └── candidate.json           # Candidate release gần nhất
+├── reference/v<version>/       # Comparables CSV/Parquet tách khỏi model
+├── artifacts/
+│   ├── runs/run_<timestamp>/    # Manifest, metrics, data card của từng run
+│   └── *.json                   # Snapshot tương thích ngược
+├── reports/
+│   └── releases/v<version>/     # Metrics công bố cho từng release
+├── src/
+│   ├── data/                    # Loader, validation, identity, split, manifest
+│   ├── features/                # Feature builder, context, text, temporal
+│   ├── modeling/                # Candidate, selection, trainer, baseline
+│   ├── calibration/             # Conformal calibration
+│   ├── comparables/             # Comparable context và benchmark
+│   ├── evaluation/              # Test metrics và báo cáo
+│   ├── reliability/             # OOD, stale model, reliability guards
+│   ├── serving/                 # Predictor, explain, serving comparables
+│   ├── artifacts/               # Writer, loader, schema, governance
+│   └── pipeline.py              # Master lifecycle pipeline
+├── tests/                       # Unit, API, preprocessing, lifecycle tests
+├── requirements.txt
+├── requirements-dev.txt
+├── Dockerfile
+└── docker-compose.yml
 ```
 
----
+## 7. Cài đặt và chạy thử nghiệm
 
-## 13. Hướng Dẫn Cài Đặt & Chạy Thử Nghiệm
+### Cài đặt local
 
-### 1. Cài đặt môi trường
+Yêu cầu Python 3.10 trở lên:
 
-```bash
-git clone https://github.com/haminhthong/hcmc-real-estate-price-intelligence.git
-cd hcmc-real-estate-price-intelligence
-
-# Khởi tạo virtual environment
+```powershell
 python -m venv .venv
-.\.venv\Scripts\Activate.ps1    # Trên Windows PowerShell
-# source .venv/bin/activate     # Trên Linux/macOS
-
+.\.venv\Scripts\Activate.ps1
+python -m pip install --upgrade pip
 pip install -r requirements-dev.txt
 ```
 
-### 2. Thực thi toàn bộ vòng đời ML Pipeline
+### Chạy test và lint
 
-```bash
-# Chạy toàn bộ 11 bước offline pipeline và kết xuất artifacts chuẩn hóa
-python -m src.pipeline train
+```powershell
+python -m pytest -q -p no:cacheprovider
+python -m ruff check --no-cache api src
 ```
 
-### 3. Khởi chạy dịch vụ API & Web Dashboard
+### Chạy canonical training pipeline
 
-```bash
-# FastAPI Serving
+Không ghi đè version đã tồn tại. Hãy dùng version mới cho mỗi lần train:
+
+```powershell
+python -m src.pipeline train --data-path data/sample/data_public_sample.csv --version 1.3.0
+```
+
+Pipeline sẽ tạo:
+
+- `models/v1.3.0/` immutable bundle;
+- `reference/v1.3.0/` comparables reference;
+- `artifacts/runs/run_<timestamp>/` audit snapshot;
+- `reports/releases/v1.3.0/metrics.json` release metrics;
+- `models/candidate.json`;
+- chỉ cập nhật `models/production.json` nếu Release Gate đạt.
+
+### Chạy API và giao diện
+
+```powershell
 uvicorn api.main:app --reload --port 8000
-
-# Streamlit UI
 streamlit run app/streamlit_app.py
 ```
 
-### 4. Chạy kiểm thử tự động (Test Suite)
+Swagger UI: <http://127.0.0.1:8000/docs>
 
-```bash
-python -m pytest -v
-```
+## 8. Governance và nguyên tắc an toàn
 
----
+- Development Gate chỉ đọc Validation; Release Gate chỉ đọc Locked Future Test
+  và Conformal Calibration.
+- Không dùng Test để quay ngược tinh chỉnh hyperparameter.
+- Bundle release đã tồn tại không được ghi đè.
+- Loader production kiểm tra production pointer, file bắt buộc và SHA256; lỗi
+  artifact thì fail-closed.
+- `research_only` không được tự động thay thế production model hiện hành.
+- Model cũ hơn 180 ngày so với `as_of_date` phát cảnh báo
+  `STALE_MARKET_MODEL`.
+- Comparables không được lấy từ tương lai so với thời điểm định giá.
+- Dữ liệu không có ngày không được biến thành ngày crawl giả.
 
-## 14. CV & GitHub Positioning
+## 9. Tệp tham chiếu quan trọng
 
-### GitHub Tagline
-> **A leakage-aware residential listing-price intelligence system for Ho Chi Minh City combining property-identity resolution, grouped temporal validation, geospatial ML, conformal uncertainty, reliability guardrails, comparable-property retrieval and production-oriented serving.**
-
-### CV Bullet Point
-> **Built an HCMC residential listing-price intelligence platform with property-level leakage control, grouped temporal validation, geospatial/structural feature engineering, validation-only model selection, split-conformal intervals, reliability guardrails, comparable-property retrieval and FastAPI serving.**
-
-### Pipeline Summary
-> **HCMC Listings $\rightarrow$ Property Identity & Data QA $\rightarrow$ Grouped Temporal Split $\rightarrow$ Geospatial ML $\rightarrow$ Conformal Uncertainty $\rightarrow$ Reliability Guard $\rightarrow$ Comparable Properties $\rightarrow$ Price Intelligence API**
-
----
-
-## 📝 License
-
-Dự án được phát hành theo giấy phép [MIT License](LICENSE).
+- [Canonical pipeline](src/pipeline.py)
+- [Data cleaning và identity](src/data/cleaning.py)
+- [Temporal split](src/data/split.py)
+- [Feature contract](src/features/context.py)
+- [Serving predictor](src/serving/predictor.py)
+- [Artifact governance](src/artifacts/writer.py)
+- [Current release metrics](reports/releases/v1.2.0/metrics.json)
+- [Archived README](docs/archive/README_v1.md)

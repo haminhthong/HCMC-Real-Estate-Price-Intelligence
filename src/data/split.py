@@ -144,10 +144,11 @@ def split_canonical_temporal_purged(
     development_ratio: float = 0.70,
     calibration_ratio: float = 0.10,
 ) -> tuple[np.ndarray, np.ndarray, np.ndarray, dict[str, Any]]:
-    """Chia Development/Calibration/Locked Future Test theo thời gian tuyệt đối.
+    """Chạy alternative experiment 70/10/20 theo thời gian tuyệt đối.
 
     Các property xuất hiện ở block trước sẽ bị purge khỏi block sau. Dòng ngày
-    unknown bị loại khỏi benchmark thay vì được coi là ngày mới nhất.
+    unknown bị loại khỏi benchmark thay vì được coi là ngày mới nhất. Tên hàm
+    được giữ để tương thích ngược; master pipeline không gọi protocol này.
     """
     required = {"property_group_id", "listing_date"}
     if not required.issubset(df.columns):

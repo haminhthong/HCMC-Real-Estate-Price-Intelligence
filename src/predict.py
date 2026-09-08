@@ -14,9 +14,10 @@ from src.serving import (
     explain_top_features,
     find_comparables,
     friendly_feature_name,
+)
+from src.serving import (
     predict_one as _predict_one,
 )
-
 
 load_model = load_production_model
 
@@ -30,8 +31,8 @@ def predict_one(
 
 
 __all__ = [
-    "clear_model_cache",
     "check_ood_guards",
+    "clear_model_cache",
     "explain_top_features",
     "find_comparables",
     "friendly_feature_name",

@@ -1,6 +1,7 @@
 """Mô-đun Phase B: Tái huấn luyện Champion Model trên tập gộp Train + Validation (Final Refit)."""
 
 from typing import Any
+
 import numpy as np
 import pandas as pd
 from sklearn.pipeline import Pipeline
@@ -8,6 +9,7 @@ from sklearn.pipeline import Pipeline
 from src.config import NUMERIC_FEATURES, logger
 from src.features.builder import build_features
 from src.features.context import FeatureContext
+
 from .baselines import NaiveMedianBaseline, SegmentMedianBaseline
 from .pipelines import build_pipeline
 

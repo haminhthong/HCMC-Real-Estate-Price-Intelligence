@@ -12,6 +12,7 @@ import joblib
 import pandas as pd
 
 from src.config import (
+    CANONICAL_SPLIT_PROTOCOL,
     DATA_CARD_PATH,
     ERROR_ANALYSIS_PATH,
     METRICS_PATH,
@@ -225,6 +226,8 @@ def save_model_artifacts(
         "deployment_reason": promotion_result["promotion_reason"],
     }
     _write_json(metrics_flat, METRICS_PATH)
+    release_metrics_path = ROOT_DIR / "reports" / "releases" / v_tag / "metrics.json"
+    _write_json(metrics_flat, release_metrics_path)
 
     comparison = {
         "selection_split": "validation",
@@ -264,7 +267,7 @@ def save_model_artifacts(
         "target_coverage": calibration_result["target_coverage"],
         "target_formulation": selection_result["selected_target_fmt"],
         "reference_date": feature_context.reference_date,
-        "split_protocol": "grouped temporal split 60/15/10/15 with 2-phase champion refit",
+        "split_protocol": CANONICAL_SPLIT_PROTOCOL,
         "segment_unit_prices": segment_unit_prices,
         "reference_listings": ref_clean_rows,
         "comparable_context": comparable_context.to_dict() if hasattr(comparable_context, "to_dict") else comparable_context,
@@ -279,5 +282,6 @@ def save_model_artifacts(
         "models_dir": models_dir,
         "reference_dir": reference_dir,
         "runs_dir": runs_dir,
+        "release_metrics_path": release_metrics_path,
         "legacy_model_path": MODEL_PATH,
     }

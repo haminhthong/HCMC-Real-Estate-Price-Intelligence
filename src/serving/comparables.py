@@ -4,7 +4,9 @@
 """
 
 from typing import Any
-from src.comparables import ComparableContext, find_comparables as _find_comparables
+
+from src.comparables import ComparableContext
+from src.comparables import find_comparables as _find_comparables
 
 
 def find_comparables(

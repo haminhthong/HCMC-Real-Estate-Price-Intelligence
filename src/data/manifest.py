@@ -7,6 +7,8 @@ from typing import Any
 
 import pandas as pd
 
+from src.config import CANONICAL_SPLIT_PROTOCOL
+
 
 @dataclass
 class DatasetManifest:
@@ -100,8 +102,9 @@ def create_split_manifest(
     validation_idx: Any,
     calibration_idx: Any,
     test_idx: Any,
+    protocol: str = CANONICAL_SPLIT_PROTOCOL,
 ) -> SplitManifest:
-    """Tạo SplitManifest từ các chỉ mục tập chia."""
+    """Tạo SplitManifest từ các chỉ mục tập chia và protocol canonical."""
     train_df = df.iloc[train_idx]
     val_df = df.iloc[validation_idx]
     calib_df = df.iloc[calibration_idx]
@@ -113,7 +116,7 @@ def create_split_manifest(
         return ("unknown", "unknown")
 
     return SplitManifest(
-        protocol="grouped_temporal_split_60_15_10_15_by_latest_group_listing_date",
+        protocol=protocol,
         train_groups_count=int(train_df["property_group_id"].nunique()),
         validation_groups_count=int(val_df["property_group_id"].nunique()),
         calibration_groups_count=int(calib_df["property_group_id"].nunique()),

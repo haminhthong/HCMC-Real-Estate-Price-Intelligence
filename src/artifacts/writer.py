@@ -101,7 +101,11 @@ def save_model_artifacts(
 
     # 5. Lưu comparable context nếu có
     if comparable_context is not None:
-        comp_ctx_dict = comparable_context.to_dict() if hasattr(comparable_context, "to_dict") else comparable_context
+        comp_ctx_dict = (
+            comparable_context.to_dict()
+            if hasattr(comparable_context, "to_dict")
+            else comparable_context
+        )
         _write_json(comp_ctx_dict, models_dir / "comparable_context.json")
         _write_json(comp_ctx_dict, runs_dir / "comparable_context.json")
         _write_json(comp_ctx_dict, ROOT_DIR / "artifacts" / "comparable_context.json")
@@ -113,8 +117,14 @@ def save_model_artifacts(
         "model_type": selection_result["selected_model_name"],
         "target_formulation": selection_result["selected_target_fmt"],
         "promotion": promotion_result,
-        "supported_areas": sorted(reference_df["location_area"].unique().tolist()) if "location_area" in reference_df else [],
-        "supported_property_types": sorted(reference_df["Property Type"].unique().tolist()) if "Property Type" in reference_df else [],
+        "supported_areas": sorted(reference_df["location_area"].unique().tolist())
+        if "location_area" in reference_df
+        else [],
+        "supported_property_types": sorted(
+            reference_df["Property Type"].unique().tolist()
+        )
+        if "Property Type" in reference_df
+        else [],
         "training_ranges": training_ranges,
         "training_quantiles": training_quantiles,
         "target_p90": target_p90,
@@ -129,9 +139,19 @@ def save_model_artifacts(
     # 6. Tách rời bảng tham chiếu Comparables (Decoupled Reference Dataset)
     ref_clean_rows = []
     for _, row in reference_df.iterrows():
-        area_val = float(row["Area"]) if pd.notna(row.get("Area")) and float(row.get("Area")) > 0 else None
-        price_val = float(row["Price"]) if pd.notna(row.get("Price")) and float(row.get("Price")) > 0 else None
-        unit_price = round(price_val / area_val, 1) if (price_val and area_val) else None
+        area_val = (
+            float(row["Area"])
+            if pd.notna(row.get("Area")) and float(row.get("Area")) > 0
+            else None
+        )
+        price_val = (
+            float(row["Price"])
+            if pd.notna(row.get("Price")) and float(row.get("Price")) > 0
+            else None
+        )
+        unit_price = (
+            round(price_val / area_val, 1) if (price_val and area_val) else None
+        )
         ref_clean_rows.append(
             {
                 "property_group_id": str(row.get("property_group_id", "")),
@@ -140,12 +160,22 @@ def save_model_artifacts(
                 "area": area_val,
                 "price_million": price_val,
                 "unit_price_million_m2": unit_price,
-                "bedrooms": int(row["Bedrooms"]) if pd.notna(row.get("Bedrooms")) else None,
-                "bathrooms": int(row["Bathrooms"]) if pd.notna(row.get("Bathrooms")) else None,
+                "bedrooms": int(row["Bedrooms"])
+                if pd.notna(row.get("Bedrooms"))
+                else None,
+                "bathrooms": int(row["Bathrooms"])
+                if pd.notna(row.get("Bathrooms"))
+                else None,
                 "floors": int(row["Floors"]) if pd.notna(row.get("Floors")) else None,
-                "latitude": float(row["Latitude"]) if pd.notna(row.get("Latitude")) else None,
-                "longitude": float(row["Longitude"]) if pd.notna(row.get("Longitude")) else None,
-                "distance_to_cbd_km": round(float(row["distance_to_cbd_km"]), 2) if pd.notna(row.get("distance_to_cbd_km")) else None,
+                "latitude": float(row["Latitude"])
+                if pd.notna(row.get("Latitude"))
+                else None,
+                "longitude": float(row["Longitude"])
+                if pd.notna(row.get("Longitude"))
+                else None,
+                "distance_to_cbd_km": round(float(row["distance_to_cbd_km"]), 2)
+                if pd.notna(row.get("distance_to_cbd_km"))
+                else None,
                 "listing_date": str(row.get("listing_date", "")),
                 "has_furniture": int(row.get("has_furniture", 0)),
                 "car_alley": int(row.get("car_alley", 0)),
@@ -195,7 +225,9 @@ def save_model_artifacts(
     # 8. Lưu snapshot vào runs/
     _write_json(dataset_manifest.to_dict(), runs_dir / "dataset_manifest.json")
     _write_json(split_manifest.to_dict(), runs_dir / "split_manifest.json")
-    _write_json(selection_result["validation_benchmarks"], runs_dir / "model_selection.json")
+    _write_json(
+        selection_result["validation_benchmarks"], runs_dir / "model_selection.json"
+    )
     _write_json(calibration_result, runs_dir / "calibration.json")
     _write_json(evaluation_result["champion_metrics"], runs_dir / "test_metrics.json")
     _write_json(evaluation_result["slice_analysis"], runs_dir / "slice_metrics.json")
@@ -244,7 +276,9 @@ def save_model_artifacts(
         "test_report_only": {
             selection_result["selected_model_name"]: test_metrics,
             "naive_median": evaluation_result["baselines"]["naive_median"],
-            "district_property_segment_median": evaluation_result["baselines"]["district_property_segment_median"],
+            "district_property_segment_median": evaluation_result["baselines"][
+                "district_property_segment_median"
+            ],
         },
     }
     _write_json(comparison, MODEL_COMPARISON_PATH)
@@ -270,14 +304,20 @@ def save_model_artifacts(
         "split_protocol": CANONICAL_SPLIT_PROTOCOL,
         "segment_unit_prices": segment_unit_prices,
         "reference_listings": ref_clean_rows,
-        "comparable_context": comparable_context.to_dict() if hasattr(comparable_context, "to_dict") else comparable_context,
+        "comparable_context": comparable_context.to_dict()
+        if hasattr(comparable_context, "to_dict")
+        else comparable_context,
         "target_p90": target_p90,
         "promotion_status": promotion_result,
     }
     if release_ready:
         save_atomic_joblib(legacy_artifact, MODEL_PATH)
 
-    logger.info("Đã lưu trữ toàn diện Versioned Artifacts tại %s và Legacy Artifact tại %s.", models_dir, MODEL_PATH)
+    logger.info(
+        "Đã lưu trữ toàn diện Versioned Artifacts tại %s và Legacy Artifact tại %s.",
+        models_dir,
+        MODEL_PATH,
+    )
     return {
         "models_dir": models_dir,
         "reference_dir": reference_dir,

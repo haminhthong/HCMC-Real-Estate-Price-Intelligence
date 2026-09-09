@@ -28,7 +28,9 @@ class FeatureContext:
     cbd_longitude: float = 106.7009
     feature_schema_version: int = 3
     numeric_features: list[str] = field(default_factory=lambda: list(NUMERIC_FEATURES))
-    categorical_features: list[str] = field(default_factory=lambda: list(CATEGORICAL_FEATURES))
+    categorical_features: list[str] = field(
+        default_factory=lambda: list(CATEGORICAL_FEATURES)
+    )
     flag_features: list[str] = field(default_factory=lambda: list(FLAG_FEATURES))
     missing_indicator_features: list[str] = field(
         default_factory=lambda: list(MISSING_INDICATOR_FEATURES)
@@ -50,7 +52,11 @@ class FeatureContext:
         """
         if "listing_date" in df and df["listing_date"].notna().any():
             max_date = df["listing_date"].max()
-            ref_str = max_date.isoformat() if hasattr(max_date, "isoformat") else str(max_date)
+            ref_str = (
+                max_date.isoformat()
+                if hasattr(max_date, "isoformat")
+                else str(max_date)
+            )
         else:
             # Chỉ dùng thời điểm hiện tại cho các DataFrame serving không có
             # listing_date. Dữ liệu huấn luyện phải có ngày hợp lệ trước split.
@@ -75,7 +81,9 @@ class FeatureContext:
             cbd_longitude=data.get("cbd_longitude", 106.7009),
             feature_schema_version=data.get("feature_schema_version", 3),
             numeric_features=data.get("numeric_features", list(NUMERIC_FEATURES)),
-            categorical_features=data.get("categorical_features", list(CATEGORICAL_FEATURES)),
+            categorical_features=data.get(
+                "categorical_features", list(CATEGORICAL_FEATURES)
+            ),
             flag_features=data.get("flag_features", list(FLAG_FEATURES)),
             missing_indicator_features=data.get(
                 "missing_indicator_features", list(MISSING_INDICATOR_FEATURES)

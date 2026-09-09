@@ -48,15 +48,27 @@ def evaluate_comparables_on_validation(
                 "property_type": row.get("Property Type"),
                 "location_area": row.get("location_area"),
                 "area": area,
-                "bedrooms": float(row["Bedrooms"]) if pd.notna(row.get("Bedrooms")) else None,
-                "bathrooms": float(row["Bathrooms"]) if pd.notna(row.get("Bathrooms")) else None,
+                "bedrooms": float(row["Bedrooms"])
+                if pd.notna(row.get("Bedrooms"))
+                else None,
+                "bathrooms": float(row["Bathrooms"])
+                if pd.notna(row.get("Bathrooms"))
+                else None,
                 "floors": float(row["Floors"]) if pd.notna(row.get("Floors")) else None,
                 "price_million": price,
                 "unit_price_million_m2": unit_p,
-                "latitude": float(row["Latitude"]) if pd.notna(row.get("Latitude")) else None,
-                "longitude": float(row["Longitude"]) if pd.notna(row.get("Longitude")) else None,
-                "distance_to_cbd_km": float(row["distance_to_cbd_km"]) if pd.notna(row.get("distance_to_cbd_km")) else None,
-                "listing_date": str(row["listing_date"]) if pd.notna(row.get("listing_date")) else None,
+                "latitude": float(row["Latitude"])
+                if pd.notna(row.get("Latitude"))
+                else None,
+                "longitude": float(row["Longitude"])
+                if pd.notna(row.get("Longitude"))
+                else None,
+                "distance_to_cbd_km": float(row["distance_to_cbd_km"])
+                if pd.notna(row.get("distance_to_cbd_km"))
+                else None,
+                "listing_date": str(row["listing_date"])
+                if pd.notna(row.get("listing_date"))
+                else None,
             }
         )
 
@@ -66,7 +78,7 @@ def evaluate_comparables_on_validation(
     }
 
     train_median_price = float(df_train["Price"].median())
-    
+
     # Bảng tra cứu segment median đơn giá từ Train
     unit_prices = df_train["Price"] / df_train["Area"].replace(0, np.nan)
     segment_unit_lookup = (
@@ -135,7 +147,10 @@ def evaluate_comparables_on_validation(
     seg_stats = calc_stats(y_seg)
 
     improvement_vs_naive = round(
-        (naive_stats["mae_million"] - comp_stats["mae_million"]) / max(naive_stats["mae_million"], 1.0) * 100.0, 2
+        (naive_stats["mae_million"] - comp_stats["mae_million"])
+        / max(naive_stats["mae_million"], 1.0)
+        * 100.0,
+        2,
     )
 
     return {

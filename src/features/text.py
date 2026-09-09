@@ -26,15 +26,11 @@ def add_text_flags(df: pd.DataFrame) -> pd.DataFrame:
     out = df.copy()
     title = out["Title"] if "Title" in out else pd.Series("", index=out.index)
     description = (
-        out["Description"]
-        if "Description" in out
-        else pd.Series("", index=out.index)
+        out["Description"] if "Description" in out else pd.Series("", index=out.index)
     )
 
     raw_text = (
-        title.fillna("").astype(str)
-        + " "
-        + description.fillna("").astype(str)
+        title.fillna("").astype(str) + " " + description.fillna("").astype(str)
     ).str.lower()
     has_text = raw_text.str.strip().ne("")
 

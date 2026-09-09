@@ -71,7 +71,9 @@ def select_champion_model(
 
     # Ghi nhận baseline segment vào kết quả validation
     for fmt in TARGET_FORMULATIONS:
-        validation_benchmarks[fmt]["district_property_segment_median"] = segment_val_metrics
+        validation_benchmarks[fmt]["district_property_segment_median"] = (
+            segment_val_metrics
+        )
 
     # 3. Lựa chọn mô hình Champion dựa trên Validation MAE (và ghi nhận WAPE, Median AE)
     best_combo = None
@@ -86,7 +88,9 @@ def select_champion_model(
 
     selected_target_fmt, selected_model_name = best_combo
     naive_val_mae = validation_benchmarks["total_price"]["naive_median"]["mae_million"]
-    selected_validation_metrics = validation_benchmarks[selected_target_fmt][selected_model_name]
+    selected_validation_metrics = validation_benchmarks[selected_target_fmt][
+        selected_model_name
+    ]
 
     logger.info(
         "Kết thúc Phase A: Đã chọn Champion model '%s' (target=%s) với Val MAE=%.1f triệu (Naive=%.1f triệu).",

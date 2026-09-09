@@ -106,7 +106,11 @@ def clean_data(raw: pd.DataFrame) -> pd.DataFrame:
         "rows_valid": rows_valid,
         "rows_clean": rows_clean,
         "unique_property_groups": unique_properties,
-        "multi_listing_groups_count": int(df[df.duplicated("property_group_id", keep=False)]["property_group_id"].nunique()),
+        "multi_listing_groups_count": int(
+            df[df.duplicated("property_group_id", keep=False)][
+                "property_group_id"
+            ].nunique()
+        ),
         "largest_group_size": identity_audit.get("largest_group_size", 1),
         "identity_level_counts": identity_audit.get("level_counts", {}),
         "rows_removed_by_reason": {
@@ -114,7 +118,9 @@ def clean_data(raw: pd.DataFrame) -> pd.DataFrame:
             "numeric_or_price_outliers": numeric_outliers_removed,
             "exact_duplicate_listings": exact_listing_duplicates_removed,
         },
-        "duplicate_listing_percent": float(round(exact_listing_duplicates_removed / max(rows_raw, 1) * 100, 2)),
+        "duplicate_listing_percent": float(
+            round(exact_listing_duplicates_removed / max(rows_raw, 1) * 100, 2)
+        ),
         "unknown_temporal_rows": int((df["temporal_status"] == "unknown").sum())
         if "temporal_status" in df
         else 0,

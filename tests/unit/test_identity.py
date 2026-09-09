@@ -51,6 +51,7 @@ def test_assign_property_group_adds_column():
 
 def test_resolve_property_identities_multi_level():
     from src.data.identity import resolve_property_identities
+
     df = pd.DataFrame(
         [
             {
@@ -85,11 +86,14 @@ def test_resolve_property_identities_multi_level():
         ]
     )
     resolved, audit = resolve_property_identities(df)
-    assert resolved["property_group_id"].iloc[0] == resolved["property_group_id"].iloc[1]
-    assert resolved["property_group_id"].iloc[0] != resolved["property_group_id"].iloc[2]
+    assert (
+        resolved["property_group_id"].iloc[0] == resolved["property_group_id"].iloc[1]
+    )
+    assert (
+        resolved["property_group_id"].iloc[0] != resolved["property_group_id"].iloc[2]
+    )
     assert resolved["identity_confidence"].iloc[0] == "strong"
     assert resolved["identity_confidence"].iloc[2] == "singleton"
     assert audit["unique_property_groups"] == 2
     assert audit["multi_listing_groups_count"] == 1
     assert audit["largest_group_size"] == 2
-

@@ -28,14 +28,19 @@ def refit_champion_model(
     3. Đóng băng `final_feature_context` làm quy chuẩn cho Calibration, Test và Serving.
     4. Trích xuất các phân vị P01 - P99 và bảng đơn giá phân khúc phục vụ kiểm tra OOD.
     """
-    logger.info("--- BẮT ĐẦU PHASE B: FINAL REFIT CHAMPION MODEL TRÊN TRAIN + VALIDATION (75%) ---")
+    logger.info(
+        "--- BẮT ĐẦU PHASE B: FINAL REFIT CHAMPION MODEL TRÊN TRAIN + VALIDATION (75%) ---"
+    )
 
     df_train_dev = pd.concat([df_train, df_val], ignore_index=True)
     logger.info("Tập gộp Train + Validation có %d bản ghi.", len(df_train_dev))
 
     # 1. Cập nhật FeatureContext mới dựa trên toàn bộ 75% dữ liệu
     final_feature_context = FeatureContext.fit(df_train_dev)
-    logger.info("Mốc tham chiếu chuẩn hóa mới (reference_date_final): %s", final_feature_context.reference_date)
+    logger.info(
+        "Mốc tham chiếu chuẩn hóa mới (reference_date_final): %s",
+        final_feature_context.reference_date,
+    )
 
     # 2. Xây dựng ma trận đặc trưng cho tập gộp
     features_train_dev = build_features(df_train_dev, context=final_feature_context)
@@ -51,7 +56,11 @@ def refit_champion_model(
         features_train_dev,
         y_train_dev,
     )
-    logger.info("Refit hoàn tất cho champion model '%s' (target=%s).", selected_model_name, selected_target_fmt)
+    logger.info(
+        "Refit hoàn tất cho champion model '%s' (target=%s).",
+        selected_model_name,
+        selected_target_fmt,
+    )
 
     # 5. Fit các mô hình cơ sở thẩm định trên Train + Val phục vụ so sánh và bối cảnh
     naive_baseline = NaiveMedianBaseline().fit(df_train_dev)

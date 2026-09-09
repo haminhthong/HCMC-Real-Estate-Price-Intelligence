@@ -51,10 +51,13 @@ def evaluate_champion_on_test(
             0.0,
         )
         lower_bound = np.maximum(
-            np.expm1(test_raw_pred - residual_log_quantile) * df_test["Area"].to_numpy(),
+            np.expm1(test_raw_pred - residual_log_quantile)
+            * df_test["Area"].to_numpy(),
             0.0,
         )
-        upper_bound = np.expm1(test_raw_pred + residual_log_quantile) * df_test["Area"].to_numpy()
+        upper_bound = (
+            np.expm1(test_raw_pred + residual_log_quantile) * df_test["Area"].to_numpy()
+        )
     else:
         test_pred_price = np.maximum(np.expm1(test_raw_pred), 0.0)
         lower_bound = np.maximum(

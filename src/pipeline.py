@@ -43,9 +43,15 @@ def run_pipeline(
     model_version: str = MODEL_VERSION,
 ) -> dict[str, Any]:
     """Chạy toàn bộ quy trình Master ML Lifecycle từ dữ liệu thô đến khi lưu trữ artifacts."""
-    logger.info("==========================================================================")
-    logger.info("   BẮT ĐẦU MASTER ML LIFECYCLE PIPELINE (HCMC REAL ESTATE INTELLIGENCE)  ")
-    logger.info("==========================================================================")
+    logger.info(
+        "=========================================================================="
+    )
+    logger.info(
+        "   BẮT ĐẦU MASTER ML LIFECYCLE PIPELINE (HCMC REAL ESTATE INTELLIGENCE)  "
+    )
+    logger.info(
+        "=========================================================================="
+    )
 
     # 1. DATA INGESTION
     raw_df = load_raw_dataset(data_path)
@@ -55,7 +61,9 @@ def run_pipeline(
     audit_stats = getattr(clean_df, "attrs", {}).get("data_audit", {})
 
     if len(clean_df) < 50:
-        raise ValueError("Số lượng mẫu hợp lệ sau làm sạch quá nhỏ (< 50) để chia 4 tập.")
+        raise ValueError(
+            "Số lượng mẫu hợp lệ sau làm sạch quá nhỏ (< 50) để chia 4 tập."
+        )
 
     # 3. DATASET MANIFEST
     dataset_manifest = create_dataset_manifest(
@@ -146,7 +154,9 @@ def run_pipeline(
     # Development và Release là hai quyết định độc lập.
     # Test chỉ đi vào Release Gate, không bị truyền ngược thành Validation WAPE.
     promotion_result = {
-        "selection_status": "champion" if dev_gate["champion_approved"] else "research_candidate",
+        "selection_status": "champion"
+        if dev_gate["champion_approved"]
+        else "research_candidate",
         "production_readiness": rel_gate["readiness_status"],
         "deployment_approved": bool(rel_gate["production_ready"]),
         "promotion_status": {
@@ -166,8 +176,11 @@ def run_pipeline(
 
     # 11. COMPARABLE ENGINE CONTEXT & OFFLINE VALIDATION BENCHMARK
     from src.comparables import ComparableContext, evaluate_comparables_on_validation
+
     ref_df = refit_result["df_train_dev"].copy()
-    ref_df["distance_to_cbd_km"] = refit_result["features_train_dev"]["distance_to_cbd_km"].to_numpy()
+    ref_df["distance_to_cbd_km"] = refit_result["features_train_dev"][
+        "distance_to_cbd_km"
+    ].to_numpy()
     # Benchmark dùng context Train-only. Serving sau khi development hoàn tất
     # được phép dùng reference Train+Validation, nhưng không dùng context đó
     # để benchmark ngược lại.
@@ -181,7 +194,9 @@ def run_pipeline(
         context=benchmark_context,
         n_matches=4,
     )
-    logger.info("Comparable Engine Validation Benchmark: %s", comp_eval_result["summary"])
+    logger.info(
+        "Comparable Engine Validation Benchmark: %s", comp_eval_result["summary"]
+    )
 
     # 12. DATA CARD & METADATA
     data_card = {
@@ -190,12 +205,15 @@ def run_pipeline(
         "rows_raw": audit_stats.get("rows_raw", len(raw_df)),
         "rows_valid": audit_stats.get("rows_valid", len(clean_df)),
         "rows_clean": audit_stats.get("rows_clean", len(clean_df)),
-        "unique_property_groups": audit_stats.get("unique_property_groups", clean_df["property_group_id"].nunique()),
+        "unique_property_groups": audit_stats.get(
+            "unique_property_groups", clean_df["property_group_id"].nunique()
+        ),
         "multi_listing_groups_count": audit_stats.get("multi_listing_groups_count", 0),
         "largest_group_size": audit_stats.get("largest_group_size", 1),
         "rows_removed_by_reason": audit_stats.get("rows_removed_by_reason", {}),
         "missing_rate_by_column": {
-            col: round(float(clean_df[col].isna().mean() * 100), 2) for col in clean_df.columns
+            col: round(float(clean_df[col].isna().mean() * 100), 2)
+            for col in clean_df.columns
         },
         "target_percentiles": {
             f"p{p}": round(float(clean_df["Price"].quantile(p / 100)), 1)
@@ -211,13 +229,17 @@ def run_pipeline(
         "split_protocol": split_manifest.protocol,
         "known_date_rows": int(clean_df["listing_date"].notna().sum()),
         "unknown_date_rows": int(clean_df["listing_date"].isna().sum()),
-        "district_coverage": sorted(clean_df["location_area"].dropna().unique().tolist()),
+        "district_coverage": sorted(
+            clean_df["location_area"].dropna().unique().tolist()
+        ),
         "data_quality_funnel": {
             "raw_listings": int(audit_stats.get("rows_raw", len(raw_df))),
             "market_scope_valid": int(audit_stats.get("rows_valid", len(clean_df))),
             "identity_resolved": int(clean_df["property_group_id"].notna().sum()),
             "duplicate_listing_events_removed": int(
-                audit_stats.get("rows_removed_by_reason", {}).get("exact_duplicate_listings", 0)
+                audit_stats.get("rows_removed_by_reason", {}).get(
+                    "exact_duplicate_listings", 0
+                )
             ),
             "clean_listing_events": len(clean_df),
             "temporal_eligible": int(clean_df["listing_date"].notna().sum()),
@@ -252,14 +274,21 @@ def run_pipeline(
     # Xóa LRU cache để serving nhận ngay artifact mới
     clear_model_cache()
 
-    logger.info("==========================================================================")
-    logger.info("   PIPELINE HOÀN TẤT THÀNH CÔNG!                                         ")
-    logger.info("==========================================================================")
+    logger.info(
+        "=========================================================================="
+    )
+    logger.info(
+        "   PIPELINE HOÀN TẤT THÀNH CÔNG!                                         "
+    )
+    logger.info(
+        "=========================================================================="
+    )
     summary_text = format_evaluation_summary(evaluation_result)
     try:
         print(summary_text)
     except UnicodeEncodeError:
         import sys
+
         sys.stdout.buffer.write(summary_text.encode("utf-8"))
         sys.stdout.write("\n")
 
@@ -276,7 +305,9 @@ def run_pipeline(
 
 def main() -> None:
     """CLI entrypoint cho master pipeline."""
-    parser = argparse.ArgumentParser(description="HCMC Real Estate Price Intelligence ML Pipeline")
+    parser = argparse.ArgumentParser(
+        description="HCMC Real Estate Price Intelligence ML Pipeline"
+    )
     parser.add_argument(
         "action",
         choices=["train", "evaluate"],
@@ -303,6 +334,7 @@ def main() -> None:
         run_pipeline(data_path=args.data_path, model_version=args.version)
     elif args.action == "evaluate":
         from src.evaluate import main as eval_main
+
         eval_main()
 
 

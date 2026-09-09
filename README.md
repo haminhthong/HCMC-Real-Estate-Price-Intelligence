@@ -248,7 +248,9 @@ hcmc-real-estate-price-intelligence/
 │   ├── runs/run_<timestamp>/    # Manifest, metrics, data card của từng run
 │   └── *.json                   # Snapshot tương thích ngược
 ├── reports/
-│   └── releases/v<version>/     # Metrics công bố cho từng release
+│   ├── releases/v<version>/     # Metrics công bố cho từng release
+│   └── *.docx                   # Báo cáo audit, không tham gia runtime/CI
+├── notebooks/                   # EDA và demo; không chi phối production pipeline
 ├── src/
 │   ├── data/                    # Loader, validation, identity, split, manifest
 │   ├── features/                # Feature builder, context, text, temporal
@@ -259,7 +261,11 @@ hcmc-real-estate-price-intelligence/
 │   ├── reliability/             # OOD, stale model, reliability guards
 │   ├── serving/                 # Predictor, explain, serving comparables
 │   ├── artifacts/               # Writer, loader, schema, governance
-│   └── pipeline.py              # Master lifecycle pipeline
+│   ├── pipeline.py              # Master lifecycle pipeline
+│   ├── data_processing.py       # Wrapper tương thích ngược, không phải pipeline chính
+│   ├── feature_engineering.py   # Wrapper tương thích ngược, không phải pipeline chính
+│   ├── predict.py                # Wrapper tương thích ngược cho notebook cũ
+│   └── train.py                  # Wrapper tương thích ngược cho lệnh cũ
 ├── tests/                       # Unit, API, preprocessing, lifecycle tests
 ├── requirements.txt
 ├── requirements-dev.txt
@@ -284,7 +290,8 @@ pip install -r requirements-dev.txt
 
 ```powershell
 python -m pytest -q -p no:cacheprovider
-python -m ruff check --no-cache api app src
+python -m ruff check --no-cache api app src tests
+python -m ruff format --check --no-cache api app src tests
 ```
 
 ### Chạy canonical training pipeline
@@ -327,7 +334,7 @@ docker compose up --build
 Workflow [`ci.yml`](.github/workflows/ci.yml) chạy trên mỗi push, pull request
 hoặc có thể kích hoạt thủ công bằng `workflow_dispatch`. CI cài
 `requirements-dev.txt`, chạy `pip check`, kiểm tra Ruff trên `api`, `app`, `src`
-và `tests`, chạy toàn bộ pytest và kiểm tra báo cáo evaluation đã lưu. CI không train lại
+và `tests` (lint và format), chạy toàn bộ pytest và kiểm tra báo cáo evaluation đã lưu. CI không train lại
 hoặc ghi đè artifact version đã tồn tại; việc train release được thực hiện
 riêng qua canonical pipeline với version mới.
 

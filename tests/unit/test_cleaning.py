@@ -33,5 +33,9 @@ def test_clean_data_drops_exact_duplicates_only():
     df = pd.DataFrame([row0, row1, row2])
     cleaned = clean_data(df)
 
-    assert len(cleaned) == 2, "Chỉ 1 bản ghi trùng hoàn toàn bị loại, phải còn lại đúng 2 dòng!"
-    assert cleaned["property_group_id"].nunique() == 1, "Cả 2 dòng phải chung 1 property_group_id!"
+    assert len(cleaned) == 2, (
+        "Chỉ 1 bản ghi trùng hoàn toàn bị loại, phải còn lại đúng 2 dòng!"
+    )
+    assert cleaned["property_group_id"].nunique() == 1, (
+        "Cả 2 dòng phải chung 1 property_group_id!"
+    )

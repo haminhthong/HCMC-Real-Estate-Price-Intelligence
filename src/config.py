@@ -26,7 +26,9 @@ ROOT_DIR: Path = Path(__file__).resolve().parents[1]
 # Đường dẫn dữ liệu đầu vào
 DATA_PATH: Path = ROOT_DIR / "data" / "sample" / "data_public_sample.csv"
 
-# Đường dẫn lưu mô hình và báo cáo
+# Đường dẫn lưu mô hình và báo cáo.
+# MODEL_PATH chỉ là đích ghi tương thích ngược khi release đạt production;
+# loader hiện hành luôn đọc bundle versioned qua models/production.json.
 MODEL_PATH: Path = ROOT_DIR / "models" / "price_model.joblib"
 METRICS_PATH: Path = ROOT_DIR / "artifacts" / "metrics.json"
 MODEL_COMPARISON_PATH: Path = ROOT_DIR / "artifacts" / "model_comparison.json"
@@ -53,10 +55,29 @@ RESIDENTIAL_TYPES: list[str] = [
 ]
 
 SUPPORTED_AREAS: list[str] = [
-    "Quận 1", "Quận 3", "Quận 4", "Quận 5", "Quận 6", "Quận 7", "Quận 8", "Quận 10",
-    "Quận 11", "Quận 12", "Quận Bình Tân", "Quận Bình Thạnh", "Quận Gò Vấp",
-    "Quận Phú Nhuận", "Quận Tân Bình", "Quận Tân Phú", "TP. Thủ Đức",
-    "Huyện Bình Chánh", "Huyện Cần Giờ", "Huyện Củ Chi", "Huyện Hóc Môn", "Huyện Nhà Bè", "Unknown",
+    "Quận 1",
+    "Quận 3",
+    "Quận 4",
+    "Quận 5",
+    "Quận 6",
+    "Quận 7",
+    "Quận 8",
+    "Quận 10",
+    "Quận 11",
+    "Quận 12",
+    "Quận Bình Tân",
+    "Quận Bình Thạnh",
+    "Quận Gò Vấp",
+    "Quận Phú Nhuận",
+    "Quận Tân Bình",
+    "Quận Tân Phú",
+    "TP. Thủ Đức",
+    "Huyện Bình Chánh",
+    "Huyện Cần Giờ",
+    "Huyện Củ Chi",
+    "Huyện Hóc Môn",
+    "Huyện Nhà Bè",
+    "Unknown",
 ]
 
 # ---------------------------------------------------------------------------
@@ -111,9 +132,6 @@ MISSING_INDICATOR_FEATURES: list[str] = [
 # Missingness là tín hiệu có ý nghĩa trong dữ liệu tin đăng bất động sản,
 # vì vậy phải được đưa vào model thay vì chỉ tạo ra rồi bỏ quên.
 MODEL_FEATURES: list[str] = (
-    NUMERIC_FEATURES
-    + CATEGORICAL_FEATURES
-    + FLAG_FEATURES
-    + MISSING_INDICATOR_FEATURES
+    NUMERIC_FEATURES + CATEGORICAL_FEATURES + FLAG_FEATURES + MISSING_INDICATOR_FEATURES
 )
 EXTENDED_MODEL_FEATURES: list[str] = list(MODEL_FEATURES)

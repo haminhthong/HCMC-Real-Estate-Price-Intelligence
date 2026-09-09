@@ -166,7 +166,9 @@ def test_conformal_residual_space_matches_inference_space():
     # Khoảng tiền tệ là bất đối xứng (Asymmetric Monetary Interval)
     diff_upper = upper_price - pred_price
     diff_lower = pred_price - lower_price
-    assert diff_upper > diff_lower, "Do tính lồi của hàm mũ expm1, khoảng cách cận trên phải lớn hơn cận dưới"
+    assert diff_upper > diff_lower, (
+        "Do tính lồi của hàm mũ expm1, khoảng cách cận trên phải lớn hơn cận dưới"
+    )
 
     # Kiểm tra tính tương đương toán học giữa log-space và price-space
     log_pred = np.log1p(pred_price)
@@ -199,6 +201,7 @@ def test_comparable_engine_returns_valid_matches():
 def test_days_from_reference_no_negative_collapse():
     """P0 TEST: Đảm bảo listing_date mới hơn mốc tham chiếu không bị collapse về 0."""
     from src.features.builder import make_features
+
     ref_date = pd.Timestamp("2025-01-01")
     # Tin đăng mới hơn 100 ngày
     future_listing = pd.DataFrame([{"listing_date": pd.Timestamp("2025-04-11")}])
@@ -210,14 +213,19 @@ def test_days_from_reference_no_negative_collapse():
 def test_text_flag_negation_handling():
     """P1 TEST: Kiểm tra xử lý từ phủ định cho các cờ nhị phân."""
     from src.features.builder import make_features
+
     # Nhà không có nội thất
-    row_no_furniture = pd.DataFrame([{"Title": "Nhà đẹp", "Description": "nhà trống không có nội thất, hẻm ô tô"}])
+    row_no_furniture = pd.DataFrame(
+        [{"Title": "Nhà đẹp", "Description": "nhà trống không có nội thất, hẻm ô tô"}]
+    )
     feats_no = make_features(row_no_furniture)
     assert feats_no["has_furniture"].iloc[0] == 0
     assert feats_no["car_alley"].iloc[0] == 1
 
     # Nhà có nội thất
-    row_furniture = pd.DataFrame([{"Title": "Nhà đẹp", "Description": "full nội thất cao cấp"}])
+    row_furniture = pd.DataFrame(
+        [{"Title": "Nhà đẹp", "Description": "full nội thất cao cấp"}]
+    )
     feats_yes = make_features(row_furniture)
     assert feats_yes["has_furniture"].iloc[0] == 1
 

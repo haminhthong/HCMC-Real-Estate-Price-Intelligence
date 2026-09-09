@@ -2,14 +2,28 @@
 
 import pandas as pd
 
-from src.comparables import ComparableContext, evaluate_comparables_on_validation, find_comparables
+from src.comparables import (
+    ComparableContext,
+    evaluate_comparables_on_validation,
+    find_comparables,
+)
 
 
 def test_comparable_context_fit_and_serialization():
     df = pd.DataFrame(
         [
-            {"Area": 50.0, "distance_to_cbd_km": 5.0, "Property Type": "Nhà riêng", "location_area": "Quận 1"},
-            {"Area": 100.0, "distance_to_cbd_km": 15.0, "Property Type": "Căn hộ chung cư", "location_area": "Quận 7"},
+            {
+                "Area": 50.0,
+                "distance_to_cbd_km": 5.0,
+                "Property Type": "Nhà riêng",
+                "location_area": "Quận 1",
+            },
+            {
+                "Area": 100.0,
+                "distance_to_cbd_km": 15.0,
+                "Property Type": "Căn hộ chung cư",
+                "location_area": "Quận 7",
+            },
         ]
     )
     ctx = ComparableContext.fit(df)
@@ -81,21 +95,60 @@ def test_find_comparables_multi_dimensional():
     assert len(comps) == 2
     # Top match should be 82m2 or 78m2, not the 250m2 villa
     assert comps[0]["area"] in (82.0, 78.0)
-    assert comps[0]["similarity_score"] > comps[1]["similarity_score"] or comps[0]["similarity_score"] >= 0.8
+    assert (
+        comps[0]["similarity_score"] > comps[1]["similarity_score"]
+        or comps[0]["similarity_score"] >= 0.8
+    )
     assert summary["median_price_million"] is not None
 
 
 def test_evaluate_comparables_on_validation():
     df_train = pd.DataFrame(
         [
-            {"Area": 80.0, "Price": 8000.0, "Bedrooms": 3, "Bathrooms": 2, "Floors": 2, "Property Type": "Nhà riêng", "location_area": "Quận 1", "property_group_id": "g1"},
-            {"Area": 85.0, "Price": 8500.0, "Bedrooms": 3, "Bathrooms": 2, "Floors": 2, "Property Type": "Nhà riêng", "location_area": "Quận 1", "property_group_id": "g2"},
-            {"Area": 90.0, "Price": 9000.0, "Bedrooms": 3, "Bathrooms": 2, "Floors": 2, "Property Type": "Nhà riêng", "location_area": "Quận 1", "property_group_id": "g3"},
+            {
+                "Area": 80.0,
+                "Price": 8000.0,
+                "Bedrooms": 3,
+                "Bathrooms": 2,
+                "Floors": 2,
+                "Property Type": "Nhà riêng",
+                "location_area": "Quận 1",
+                "property_group_id": "g1",
+            },
+            {
+                "Area": 85.0,
+                "Price": 8500.0,
+                "Bedrooms": 3,
+                "Bathrooms": 2,
+                "Floors": 2,
+                "Property Type": "Nhà riêng",
+                "location_area": "Quận 1",
+                "property_group_id": "g2",
+            },
+            {
+                "Area": 90.0,
+                "Price": 9000.0,
+                "Bedrooms": 3,
+                "Bathrooms": 2,
+                "Floors": 2,
+                "Property Type": "Nhà riêng",
+                "location_area": "Quận 1",
+                "property_group_id": "g3",
+            },
         ]
     )
     df_val = pd.DataFrame(
         [
-            {"Area": 82.0, "Price": 8200.0, "Bedrooms": 3, "Bathrooms": 2, "Floors": 2, "Property Type": "Nhà riêng", "location_area": "Quận 1", "property_group_id": "g4"},
+            {
+                "Area": 82.0,
+                "Price": 8200.0,
+                "Bedrooms": 3,
+                "Bathrooms": 2,
+                "Floors": 2,
+                "Property Type": "Nhà riêng",
+                "location_area": "Quận 1",
+                "property_group_id": "g4",
+            },
         ]
     )
     res = evaluate_comparables_on_validation(df_train, df_val, n_matches=2)

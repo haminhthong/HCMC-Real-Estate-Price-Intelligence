@@ -25,7 +25,9 @@ def conformal_quantile(residuals: np.ndarray, coverage: float = 0.8) -> float:
         ValueError: Nếu tập phần dư rỗng hoặc coverage không nằm trong khoảng (0, 1).
     """
     if len(residuals) == 0:
-        raise ValueError("Tập phần dư hiệu chỉnh (calibration residuals) không được rỗng.")
+        raise ValueError(
+            "Tập phần dư hiệu chỉnh (calibration residuals) không được rỗng."
+        )
     if not 0 < coverage < 1:
         raise ValueError("Mức bao phủ (coverage) phải nằm trong khoảng (0, 1).")
 

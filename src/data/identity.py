@@ -50,7 +50,11 @@ def make_property_signature(df: pd.DataFrame) -> pd.Series:
 
     Duy trì chữ ký băm 64-bit chuẩn hóa cho mục đích kiểm thử tính bất biến (invariance).
     """
-    location = df["Location"].map(_normalize_text) if "Location" in df else pd.Series("", index=df.index)
+    location = (
+        df["Location"].map(_normalize_text)
+        if "Location" in df
+        else pd.Series("", index=df.index)
+    )
     property_type = (
         df["Property Type"].map(_normalize_text)
         if "Property Type" in df
@@ -99,7 +103,11 @@ def _compatible_structure(left: pd.Series, right: pd.Series) -> bool:
     for column in ("Bedrooms", "Bathrooms", "Floors"):
         left_value = pd.to_numeric(_identity_value(left, column), errors="coerce")
         right_value = pd.to_numeric(_identity_value(right, column), errors="coerce")
-        if pd.notna(left_value) and pd.notna(right_value) and abs(float(left_value) - float(right_value)) > 1:
+        if (
+            pd.notna(left_value)
+            and pd.notna(right_value)
+            and abs(float(left_value) - float(right_value)) > 1
+        ):
             return False
 
     for column, tolerance in (("Width", 0.08), ("Length", 0.08)):
@@ -116,8 +124,12 @@ def _compatible_structure(left: pd.Series, right: pd.Series) -> bool:
 
 def _gps_distance_m(left: pd.Series, right: pd.Series) -> float | None:
     """Tính khoảng cách GPS để chặn merge nhầm hai địa chỉ trùng tên."""
-    values = [_identity_value(left, "Latitude"), _identity_value(left, "Longitude"),
-              _identity_value(right, "Latitude"), _identity_value(right, "Longitude")]
+    values = [
+        _identity_value(left, "Latitude"),
+        _identity_value(left, "Longitude"),
+        _identity_value(right, "Latitude"),
+        _identity_value(right, "Longitude"),
+    ]
     if any(pd.isna(value) for value in values):
         return None
     radius_m = 6_371_000.0
@@ -125,7 +137,9 @@ def _gps_distance_m(left: pd.Series, right: pd.Series) -> float | None:
     phi1, phi2 = np.radians(lat1), np.radians(lat2)
     d_phi = np.radians(lat2 - lat1)
     d_lam = np.radians(lon2 - lon1)
-    haversine_a = np.sin(d_phi / 2) ** 2 + np.cos(phi1) * np.cos(phi2) * np.sin(d_lam / 2) ** 2
+    haversine_a = (
+        np.sin(d_phi / 2) ** 2 + np.cos(phi1) * np.cos(phi2) * np.sin(d_lam / 2) ** 2
+    )
     return float(radius_m * 2 * np.arcsin(np.sqrt(np.clip(haversine_a, 0.0, 1.0))))
 
 
@@ -141,7 +155,9 @@ def _listing_key(row: pd.Series) -> tuple[str, str] | None:
 def _location_components(row: pd.Series) -> tuple[str, str, str]:
     """Lấy area/ward/street bảo thủ từ địa chỉ thô, không tự bịa tọa độ."""
     location = _normalize_text(row.get("Location", ""))
-    area = _normalize_text(row.get("location_area", "")) or _normalize_text(extract_area(location))
+    area = _normalize_text(row.get("location_area", "")) or _normalize_text(
+        extract_area(location)
+    )
     chunks = [chunk.strip() for chunk in location.split(",") if chunk.strip()]
     ward = next((chunk for chunk in chunks if "phường" in chunk or "xã" in chunk), "")
     street = next((chunk for chunk in chunks if "đường" in chunk or "hẻm" in chunk), "")
@@ -159,7 +175,12 @@ def _match_level(left: pd.Series, right: pd.Series) -> str | None:
     right_location = _normalize_text(right.get("Location", ""))
     left_area = pd.to_numeric(left.get("Area"), errors="coerce")
     right_area = pd.to_numeric(right.get("Area"), errors="coerce")
-    if not left_location or not right_location or pd.isna(left_area) or pd.isna(right_area):
+    if (
+        not left_location
+        or not right_location
+        or pd.isna(left_area)
+        or pd.isna(right_area)
+    ):
         return None
 
     area_delta = _relative_difference(float(left_area), float(right_area))
@@ -236,7 +257,9 @@ def resolve_property_identities(
     expanded_blocks: dict[tuple[str, str, int], list[int]] = {}
     for (property_type, area_name, bucket), indices in blocks.items():
         for neighbor_bucket in (bucket - 1, bucket, bucket + 1):
-            expanded_blocks.setdefault((property_type, area_name, neighbor_bucket), []).extend(indices)
+            expanded_blocks.setdefault(
+                (property_type, area_name, neighbor_bucket), []
+            ).extend(indices)
 
     # Level A: cùng source + source listing id.
     listing_keys: dict[tuple[str, str], int] = {}
@@ -282,13 +305,20 @@ def resolve_property_identities(
         root_to_id[root] = make_property_signature(out.iloc[[members[0]]]).iloc[0]
         confidence = "strong" if len(members) > 1 else "singleton"
         for pair, level in union_levels.items():
-            if pair[0] in members and pair[1] in members and confidence_rank[level] > confidence_rank[confidence]:
+            if (
+                pair[0] in members
+                and pair[1] in members
+                and confidence_rank[level] > confidence_rank[confidence]
+            ):
                 confidence = level
         root_confidence[root] = confidence
 
-    out["property_group_id"] = [root_to_id[union_find.find(index)] for index in range(n)]
+    out["property_group_id"] = [
+        root_to_id[union_find.find(index)] for index in range(n)
+    ]
     out["identity_confidence"] = [
-        "weak" if index in weak_rows and root_confidence[union_find.find(index)] == "singleton"
+        "weak"
+        if index in weak_rows and root_confidence[union_find.find(index)] == "singleton"
         else root_confidence[union_find.find(index)]
         for index in range(n)
     ]

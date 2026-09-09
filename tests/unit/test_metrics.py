@@ -25,10 +25,16 @@ def test_interval_metrics_calculation():
 
 
 def test_development_and_release_gates():
-    from src.artifacts.schema import evaluate_development_gate, evaluate_release_gate, evaluate_promotion
+    from src.artifacts.schema import (
+        evaluate_development_gate,
+        evaluate_release_gate,
+        evaluate_promotion,
+    )
 
     # Development gate passes (improvement >= 10%, val_wape <= 35%)
-    dev = evaluate_development_gate(champion_val_mae=3500.0, naive_val_mae=4200.0, val_wape=28.0)
+    dev = evaluate_development_gate(
+        champion_val_mae=3500.0, naive_val_mae=4200.0, val_wape=28.0
+    )
     assert dev["champion_approved"] is True
     assert dev["beats_baseline"] is True
 
@@ -48,4 +54,3 @@ def test_development_and_release_gates():
     assert promo["deployment_approved"] is False
     assert "development_gate" in promo
     assert "release_gate" in promo
-

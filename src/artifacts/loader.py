@@ -13,7 +13,9 @@ from src.config import ROOT_DIR
 
 
 @lru_cache(maxsize=1)
-def load_production_model(model_override_path: Path | str | None = None) -> dict[str, Any]:
+def load_production_model(
+    model_override_path: Path | str | None = None,
+) -> dict[str, Any]:
     """Tải đúng release được production pointer chỉ định và fail-closed.
 
     File legacy chỉ còn dành cho override/test; production không được tự động
@@ -59,7 +61,9 @@ def load_production_model(model_override_path: Path | str | None = None) -> dict
         for relative_path, expected_hash in checksums.items():
             artifact_path = ROOT_DIR / relative_path
             if not artifact_path.exists():
-                raise FileNotFoundError(f"Artifact trong manifest không tồn tại: {relative_path}")
+                raise FileNotFoundError(
+                    f"Artifact trong manifest không tồn tại: {relative_path}"
+                )
             digest = hashlib.sha256(artifact_path.read_bytes()).hexdigest()
             if digest != expected_hash:
                 raise ValueError(f"Checksum artifact không khớp: {relative_path}")

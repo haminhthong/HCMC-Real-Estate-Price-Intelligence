@@ -40,13 +40,25 @@ class ComparableContext:
             area_scale = 40.0
 
         if "distance_to_cbd_km" in reference_df:
-            cbds = pd.to_numeric(reference_df["distance_to_cbd_km"], errors="coerce").dropna()
-            cbd_scale = float(cbds.std()) if len(cbds) > 1 and float(cbds.std()) > 0 else 8.0
+            cbds = pd.to_numeric(
+                reference_df["distance_to_cbd_km"], errors="coerce"
+            ).dropna()
+            cbd_scale = (
+                float(cbds.std()) if len(cbds) > 1 and float(cbds.std()) > 0 else 8.0
+            )
         else:
             cbd_scale = 8.0
 
-        allowed_types = sorted(reference_df["Property Type"].dropna().unique().tolist()) if "Property Type" in reference_df else []
-        allowed_areas = sorted(reference_df["location_area"].dropna().unique().tolist()) if "location_area" in reference_df else []
+        allowed_types = (
+            sorted(reference_df["Property Type"].dropna().unique().tolist())
+            if "Property Type" in reference_df
+            else []
+        )
+        allowed_areas = (
+            sorted(reference_df["location_area"].dropna().unique().tolist())
+            if "location_area" in reference_df
+            else []
+        )
 
         segment_counts: dict[str, int] = {}
         if "Property Type" in reference_df and "location_area" in reference_df:

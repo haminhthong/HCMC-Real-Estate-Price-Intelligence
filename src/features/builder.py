@@ -49,27 +49,60 @@ def build_features(
     out["data_quality_score"] = completeness
 
     # 3. Cờ chỉ báo khuyết thiếu có chủ đích (Missingness Indicators)
-    lat_val = out["Latitude"] if "Latitude" in out else pd.Series(np.nan, index=out.index)
-    lon_val = out["Longitude"] if "Longitude" in out else pd.Series(np.nan, index=out.index)
+    lat_val = (
+        out["Latitude"] if "Latitude" in out else pd.Series(np.nan, index=out.index)
+    )
+    lon_val = (
+        out["Longitude"] if "Longitude" in out else pd.Series(np.nan, index=out.index)
+    )
     out["gps_missing"] = (lat_val.isna() | lon_val.isna()).astype(int)
-    out["width_missing"] = (out["Width"].isna() if "Width" in out else pd.Series(1, index=out.index)).astype(int)
-    out["length_missing"] = (out["Length"].isna() if "Length" in out else pd.Series(1, index=out.index)).astype(int)
-    out["bedrooms_missing"] = (out["Bedrooms"].isna() if "Bedrooms" in out else pd.Series(1, index=out.index)).astype(int)
-    out["bathrooms_missing"] = (out["Bathrooms"].isna() if "Bathrooms" in out else pd.Series(1, index=out.index)).astype(int)
-    out["floors_missing"] = (out["Floors"].isna() if "Floors" in out else pd.Series(1, index=out.index)).astype(int)
-    out["road_type_missing"] = (out["Road Type"].isna() if "Road Type" in out else pd.Series(1, index=out.index)).astype(int)
-    out["alley_width_missing"] = (out["Alley Width"].isna() if "Alley Width" in out else pd.Series(1, index=out.index)).astype(int)
+    out["width_missing"] = (
+        out["Width"].isna() if "Width" in out else pd.Series(1, index=out.index)
+    ).astype(int)
+    out["length_missing"] = (
+        out["Length"].isna() if "Length" in out else pd.Series(1, index=out.index)
+    ).astype(int)
+    out["bedrooms_missing"] = (
+        out["Bedrooms"].isna() if "Bedrooms" in out else pd.Series(1, index=out.index)
+    ).astype(int)
+    out["bathrooms_missing"] = (
+        out["Bathrooms"].isna() if "Bathrooms" in out else pd.Series(1, index=out.index)
+    ).astype(int)
+    out["floors_missing"] = (
+        out["Floors"].isna() if "Floors" in out else pd.Series(1, index=out.index)
+    ).astype(int)
+    out["road_type_missing"] = (
+        out["Road Type"].isna() if "Road Type" in out else pd.Series(1, index=out.index)
+    ).astype(int)
+    out["alley_width_missing"] = (
+        out["Alley Width"].isna()
+        if "Alley Width" in out
+        else pd.Series(1, index=out.index)
+    ).astype(int)
 
     # 4. Đặc trưng thời gian và mốc định giá tham chiếu
     as_of = out.get("as_of_date", out.get("valuation_date"))
-    listing_dates = out["listing_date"] if "listing_date" in out else pd.Series(pd.NaT, index=out.index)
-    
-    has_as_of = as_of is not None and not (isinstance(as_of, pd.Series) and as_of.isna().all()) and not (not isinstance(as_of, pd.Series) and pd.isna(as_of))
+    listing_dates = (
+        out["listing_date"]
+        if "listing_date" in out
+        else pd.Series(pd.NaT, index=out.index)
+    )
+
+    has_as_of = (
+        as_of is not None
+        and not (isinstance(as_of, pd.Series) and as_of.isna().all())
+        and not (not isinstance(as_of, pd.Series) and pd.isna(as_of))
+    )
     if has_as_of:
         from .temporal import calculate_market_time_offset
-        time_offset = calculate_market_time_offset(listing_dates, context.reference_date, as_of_date=as_of)
+
+        time_offset = calculate_market_time_offset(
+            listing_dates, context.reference_date, as_of_date=as_of
+        )
     else:
-        time_offset = calculate_days_from_reference(listing_dates, context.reference_date)
+        time_offset = calculate_days_from_reference(
+            listing_dates, context.reference_date
+        )
 
     out["days_from_train_reference"] = time_offset
     out["market_time_offset_days"] = time_offset
@@ -103,8 +136,14 @@ def add_quality_features(
     out["input_completeness_score"] = completeness
     out["data_quality_score"] = completeness
 
-    listing_dates = out["listing_date"] if "listing_date" in out else pd.Series(pd.NaT, index=out.index)
-    out["days_from_train_reference"] = calculate_days_from_reference(listing_dates, reference_date)
+    listing_dates = (
+        out["listing_date"]
+        if "listing_date" in out
+        else pd.Series(pd.NaT, index=out.index)
+    )
+    out["days_from_train_reference"] = calculate_days_from_reference(
+        listing_dates, reference_date
+    )
     out["listing_age_days"] = out["days_from_train_reference"]
     return out
 

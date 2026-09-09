@@ -27,7 +27,9 @@ def test_same_property_never_crosses_splits():
     assert train_groups.isdisjoint(val_groups), "Leakage giữa Train và Validation!"
     assert train_groups.isdisjoint(calib_groups), "Leakage giữa Train và Calibration!"
     assert train_groups.isdisjoint(test_groups), "Leakage giữa Train và Test!"
-    assert val_groups.isdisjoint(calib_groups), "Leakage giữa Validation và Calibration!"
+    assert val_groups.isdisjoint(calib_groups), (
+        "Leakage giữa Validation và Calibration!"
+    )
     assert val_groups.isdisjoint(test_groups), "Leakage giữa Validation và Test!"
     assert calib_groups.isdisjoint(test_groups), "Leakage giữa Calibration và Test!"
 
@@ -94,10 +96,16 @@ def test_training_and_serving_feature_vectors_match():
         "Latitude": 10.7769,
         "Longitude": 106.7009,
     }
-    serving_feats = make_features(pd.DataFrame([serving_input]), reference_date=ctx.reference_date)
+    serving_feats = make_features(
+        pd.DataFrame([serving_input]), reference_date=ctx.reference_date
+    )
 
-    assert train_feats.columns.tolist() == serving_feats.columns.tolist(), "Cột đặc trưng không khớp giữa Train và Serving!"
-    assert train_feats.columns.tolist() == MODEL_FEATURES, "Không khớp với danh sách MODEL_FEATURES chuẩn!"
+    assert train_feats.columns.tolist() == serving_feats.columns.tolist(), (
+        "Cột đặc trưng không khớp giữa Train và Serving!"
+    )
+    assert train_feats.columns.tolist() == MODEL_FEATURES, (
+        "Không khớp với danh sách MODEL_FEATURES chuẩn!"
+    )
     assert len(train_feats.columns) == len(serving_feats.columns)
 
 

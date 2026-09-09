@@ -73,20 +73,14 @@ def parse_listing_dates(df: pd.DataFrame) -> pd.DataFrame:
             utc=True,
         )
     elif "listing_date" in out:
-        listing_dates = pd.to_datetime(
-            out["listing_date"], errors="coerce", utc=True
-        )
+        listing_dates = pd.to_datetime(out["listing_date"], errors="coerce", utc=True)
     else:
         listing_dates = pd.Series(pd.NaT, index=out.index)
 
     if "Scraped At" in out:
-        observed_at = pd.to_datetime(
-            out["Scraped At"], errors="coerce", utc=True
-        )
+        observed_at = pd.to_datetime(out["Scraped At"], errors="coerce", utc=True)
     elif "observed_at" in out:
-        observed_at = pd.to_datetime(
-            out["observed_at"], errors="coerce", utc=True
-        )
+        observed_at = pd.to_datetime(out["observed_at"], errors="coerce", utc=True)
     else:
         observed_at = pd.Series(pd.NaT, index=out.index)
 

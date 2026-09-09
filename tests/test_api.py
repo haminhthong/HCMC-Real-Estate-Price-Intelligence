@@ -30,7 +30,12 @@ def test_model_info_uses_saved_artifact(monkeypatch):
 
 
 def test_invalid_area_is_rejected():
-    payload = {"Property Type": "Nhà riêng", "location_area": "Hà Nội", "Area": 50, "Bedrooms": 2}
+    payload = {
+        "Property Type": "Nhà riêng",
+        "location_area": "Hà Nội",
+        "Area": 50,
+        "Bedrooms": 2,
+    }
     assert client.post("/predict", json=payload).status_code == 422
 
 
@@ -98,7 +103,9 @@ def test_explain_endpoint_returns_shap_contributions(monkeypatch):
         "segment_median_unit_price_million_m2": 98.0,
         "disclaimer": "Giá tham khảo.",
     }
-    monkeypatch.setattr(api_module, "predict_one", lambda _val, include_explanation=False: expected)
+    monkeypatch.setattr(
+        api_module, "predict_one", lambda _val, include_explanation=False: expected
+    )
     payload = {
         "Property Type": "Nhà riêng",
         "location_area": "Quận 1",
@@ -107,7 +114,9 @@ def test_explain_endpoint_returns_shap_contributions(monkeypatch):
     }
     response = client.post("/explain", json=payload)
     assert response.status_code == 200
-    assert response.json()["top_contributions"] == [{"feature": "Area", "shap_value": 0.25}]
+    assert response.json()["top_contributions"] == [
+        {"feature": "Area", "shap_value": 0.25}
+    ]
 
 
 def test_real_prediction_returns_nested_and_comparables():
@@ -137,4 +146,3 @@ def test_market_districts_endpoint():
     assert "districts" in data
     assert "Quận 1" in data["districts"]
     assert data["districts"]["Quận 1"]["supported"] is True
-

@@ -71,13 +71,17 @@ def find_comparables(
     target_area_name = values.get("location_area")
     target_group_id = values.get("property_group_id")
     valuation_date = pd.to_datetime(
-        values.get("as_of_date", values.get("valuation_date", values.get("listing_date"))),
+        values.get(
+            "as_of_date", values.get("valuation_date", values.get("listing_date"))
+        ),
         errors="coerce",
         utc=True,
     )
 
     target_area = _finite_float(values.get("Area"), context.median_area)
-    target_area = target_area if target_area and target_area > 0 else context.median_area
+    target_area = (
+        target_area if target_area and target_area > 0 else context.median_area
+    )
     target_beds = _finite_float(values.get("Bedrooms"), 3.0) or 3.0
     target_baths = _finite_float(values.get("Bathrooms"), 2.0) or 2.0
     target_lat = _finite_float(values.get("Latitude"))
@@ -121,12 +125,15 @@ def find_comparables(
         r
         for r in dated_candidates
         if _finite_float(r.get("area")) is None
-        or abs(_finite_float(r.get("area")) - target_area) / max(target_area, 1.0) <= 0.25
+        or abs(_finite_float(r.get("area")) - target_area) / max(target_area, 1.0)
+        <= 0.25
     ]
     local_candidates = [
         r for r in area_candidates if r.get("location_area") == target_area_name
     ]
-    candidates = local_candidates if len(local_candidates) >= n_matches else area_candidates
+    candidates = (
+        local_candidates if len(local_candidates) >= n_matches else area_candidates
+    )
 
     # Nếu không đủ ứng viên cùng quận, mở rộng sang cùng loại hình trên toàn TP.HCM
     if len(candidates) < n_matches:
@@ -134,7 +141,9 @@ def find_comparables(
             r
             for r in dated_candidates
             if r.get("property_type") == target_type
-            and (target_group_id is None or r.get("property_group_id") != target_group_id)
+            and (
+                target_group_id is None or r.get("property_group_id") != target_group_id
+            )
         ]
 
     # Không fallback về listing tương lai hoặc chính property đang định giá.
@@ -157,7 +166,12 @@ def find_comparables(
         area_dist = min(abs(c_area - target_area) / max(target_area, 10.0), 2.0)
 
         # b) Khoảng cách địa lý thực địa (Haversine GPS khi cả 2 có tọa độ)
-        if target_lat is not None and target_lon is not None and c_lat is not None and c_lon is not None:
+        if (
+            target_lat is not None
+            and target_lon is not None
+            and c_lat is not None
+            and c_lon is not None
+        ):
             raw_km = haversine_km(target_lat, target_lon, c_lat, c_lon)
             geo_dist = min(raw_km / 5.0, 2.0)
         else:
@@ -216,7 +230,15 @@ def find_comparables(
     for _, sim, item in selected:
         record = dict(item)
         record["similarity_score"] = sim
-        for key in ("bedrooms", "bathrooms", "floors", "area", "price_million", "unit_price_million_m2", "distance_to_cbd_km"):
+        for key in (
+            "bedrooms",
+            "bathrooms",
+            "floors",
+            "area",
+            "price_million",
+            "unit_price_million_m2",
+            "distance_to_cbd_km",
+        ):
             val = record.get(key)
             if val is not None:
                 if pd.isna(val):
@@ -234,6 +256,8 @@ def find_comparables(
 
     summary = {
         "median_price_million": round(float(np.median(prices)), 1) if prices else None,
-        "median_unit_price_million_m2": round(float(np.median(unit_prices)), 1) if unit_prices else None,
+        "median_unit_price_million_m2": round(float(np.median(unit_prices)), 1)
+        if unit_prices
+        else None,
     }
     return comparable_list, summary

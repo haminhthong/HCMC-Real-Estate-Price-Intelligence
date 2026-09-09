@@ -87,7 +87,9 @@ def create_dataset_manifest(
         rows_raw=audit.get("rows_raw", len(df_clean)),
         rows_valid=audit.get("rows_valid", len(df_clean)),
         rows_clean=len(df_clean),
-        property_groups=df_clean["property_group_id"].nunique() if "property_group_id" in df_clean else 0,
+        property_groups=df_clean["property_group_id"].nunique()
+        if "property_group_id" in df_clean
+        else 0,
         date_min=date_min,
         date_max=date_max,
         source_sha256=source_hash,
@@ -112,7 +114,10 @@ def create_split_manifest(
 
     def get_range(d: pd.DataFrame) -> tuple[str, str]:
         if "listing_date" in d and d["listing_date"].notna().any():
-            return (d["listing_date"].min().isoformat(), d["listing_date"].max().isoformat())
+            return (
+                d["listing_date"].min().isoformat(),
+                d["listing_date"].max().isoformat(),
+            )
         return ("unknown", "unknown")
 
     return SplitManifest(

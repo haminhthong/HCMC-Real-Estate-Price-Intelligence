@@ -61,18 +61,23 @@ st.markdown(
 )
 
 # Tiêu đề chính
-st.markdown('<div class="main-header">🏠 HCMC Real Estate Price Intelligence</div>', unsafe_allow_html=True)
+st.markdown(
+    '<div class="main-header">🏠 HCMC Real Estate Price Intelligence</div>',
+    unsafe_allow_html=True,
+)
 st.markdown(
     '<div class="sub-header">Hệ thống ước lượng giá đăng bất động sản dân dụng tại TP.HCM dựa trên Machine Learning & Conformal Prediction</div>',
     unsafe_allow_html=True,
 )
 
 # Tạo các thẻ chức năng
-tab_predict, tab_shap, tab_info = st.tabs([
-    "🏠 Dự Báo Giá",
-    "📊 Phân Tích SHAP & Thị Trường",
-    "ℹ️ Thông Tin Mô Hình & MLOps",
-])
+tab_predict, tab_shap, tab_info = st.tabs(
+    [
+        "🏠 Dự Báo Giá",
+        "📊 Phân Tích SHAP & Thị Trường",
+        "ℹ️ Thông Tin Mô Hình & MLOps",
+    ]
+)
 
 # ---------------------------------------------------------------------------
 # TAB 1: DỰ BÁO GIÁ
@@ -90,24 +95,39 @@ with tab_predict:
                 "Quận/huyện khu vực (*)",
                 [area for area in SUPPORTED_AREAS if area != "Unknown"],
             )
-            area = st.number_input("Diện tích đất/sử dụng (m²) (*)", 5.0, 500.0, 80.0, step=5.0)
+            area = st.number_input(
+                "Diện tích đất/sử dụng (m²) (*)", 5.0, 500.0, 80.0, step=5.0
+            )
             bedrooms = st.number_input("Số phòng ngủ (0 = chưa cung cấp)", 0, 10, 3)
 
         with col2:
             st.markdown("**Thông số kích thước & kết cấu**")
             bathrooms = st.number_input("Số phòng vệ sinh", 0, 20, 2)
             floors = st.number_input("Số tầng", 0, 100, 2)
-            width = st.number_input("Chiều rộng mặt tiền (m)", 0.1, 100.0, 4.0, step=0.5)
-            length = st.number_input("Chiều dài / chiều sâu (m)", 0.1, 200.0, 20.0, step=1.0)
+            width = st.number_input(
+                "Chiều rộng mặt tiền (m)", 0.1, 100.0, 4.0, step=0.5
+            )
+            length = st.number_input(
+                "Chiều dài / chiều sâu (m)", 0.1, 200.0, 20.0, step=1.0
+            )
 
         with col3:
             st.markdown("**Vị trí & Tiện ích**")
-            alley = st.number_input("Độ rộng hẻm trước nhà (m)", 0.0, 30.0, 3.0, step=0.5)
+            alley = st.number_input(
+                "Độ rộng hẻm trước nhà (m)", 0.0, 30.0, 3.0, step=0.5
+            )
             direction = st.selectbox(
                 "Hướng nhà",
                 [
-                    "Không rõ", "Đông", "Tây", "Nam", "Bắc",
-                    "Đông Nam", "Đông Bắc", "Tây Nam", "Tây Bắc",
+                    "Không rõ",
+                    "Đông",
+                    "Tây",
+                    "Nam",
+                    "Bắc",
+                    "Đông Nam",
+                    "Đông Bắc",
+                    "Tây Nam",
+                    "Tây Bắc",
                 ],
             )
             position = st.selectbox(
@@ -122,7 +142,9 @@ with tab_predict:
             default=["Hẻm ô tô"],
         )
 
-        submitted = st.form_submit_button("🔍 Thực Hiện Định Giá", type="primary", use_container_width=True)
+        submitted = st.form_submit_button(
+            "🔍 Thực Hiện Định Giá", type="primary", use_container_width=True
+        )
 
     if submitted:
         payload = {
@@ -170,7 +192,9 @@ with tab_predict:
             )
 
             reliability_info = result.get("reliability", {})
-            rel_level = reliability_info.get("overall", result.get("confidence", "medium"))
+            rel_level = reliability_info.get(
+                "overall", result.get("confidence", "medium")
+            )
             reliability_labels = {
                 "low": "🔴 THẤP (Cần thận trọng)",
                 "medium": "🟡 TRUNG BÌNH",
@@ -183,7 +207,9 @@ with tab_predict:
             )
 
             # Thanh điểm hoàn thiện dữ liệu
-            completeness = result.get("input_completeness_score", result.get("data_quality_score", 100.0))
+            completeness = result.get(
+                "input_completeness_score", result.get("data_quality_score", 100.0)
+            )
             st.progress(
                 completeness / 100,
                 text=f"Điểm Hoàn Thiện Dữ Liệu Đầu Vào: {completeness:.0f}/100%",
@@ -191,21 +217,32 @@ with tab_predict:
 
             # Cảnh báo nếu có
             if result["warnings"]:
-                with st.expander("⚠️ Cảnh Báo Tính Hợp Lệ & Phân Phối Dữ Liệu (OOD)", expanded=True):
+                with st.expander(
+                    "⚠️ Cảnh Báo Tính Hợp Lệ & Phân Phối Dữ Liệu (OOD)", expanded=True
+                ):
                     for warning in result["warnings"]:
                         st.warning(warning)
 
             # Thông tin thị trường & Bất động sản tương đồng
-            st.markdown("### 🏘️ Bối Cảnh Thị Trường & Bất Động Sản Tương Đồng (Comparables)")
+            st.markdown(
+                "### 🏘️ Bối Cảnh Thị Trường & Bất Động Sản Tương Đồng (Comparables)"
+            )
             m_ctx = result.get("market_context", {})
             col_m1, col_m2 = st.columns(2)
-            segment_price = m_ctx.get("segment_median_unit_price_million_m2", result.get("segment_median_unit_price_million_m2"))
+            segment_price = m_ctx.get(
+                "segment_median_unit_price_million_m2",
+                result.get("segment_median_unit_price_million_m2"),
+            )
             comp_price = m_ctx.get("comparable_median_price_million")
 
             if segment_price is not None:
-                col_m1.info(f"💡 **Trung vị phân khúc**: **{segment_price:,.1f} triệu VND/m²** ({property_type} tại {area_name})")
+                col_m1.info(
+                    f"💡 **Trung vị phân khúc**: **{segment_price:,.1f} triệu VND/m²** ({property_type} tại {area_name})"
+                )
             if comp_price is not None:
-                col_m2.info(f"📍 **Trung vị bất động sản tương đồng**: **{comp_price / 1000:,.2f} tỷ VND**")
+                col_m2.info(
+                    f"📍 **Trung vị bất động sản tương đồng**: **{comp_price / 1000:,.2f} tỷ VND**"
+                )
 
             # Bảng so sánh bất động sản tương đồng
             comparables = result.get("comparables", [])
@@ -269,7 +306,9 @@ with tab_shap:
         else:
             st.info("Chưa có dữ liệu SHAP.")
     else:
-        st.info("Vui lòng thực hiện một lần định giá tại Tab '🏠 Dự Báo Giá' để xem phân tích SHAP chi tiết.")
+        st.info(
+            "Vui lòng thực hiện một lần định giá tại Tab '🏠 Dự Báo Giá' để xem phân tích SHAP chi tiết."
+        )
 
 # ---------------------------------------------------------------------------
 # TAB 3: THÔNG TIN MÔ HÌNH & MLOPS
@@ -282,7 +321,9 @@ with tab_info:
 
         with c_info1:
             st.markdown("### 🛠️ Cấu Hướng Mô Hình")
-            st.write(f"- **Phiên bản mô hình**: `{model_package.get('version', '1.0.0')}`")
+            st.write(
+                f"- **Phiên bản mô hình**: `{model_package.get('version', '1.0.0')}`"
+            )
             st.write(
                 f"- **Thuật toán chính**: `{model_package.get('model_type', 'ExtraTreesRegressor')}`"
             )
@@ -290,7 +331,9 @@ with tab_info:
                 f"- **Giao thức phân chia dữ liệu**: "
                 f"`{model_package.get('split_protocol', CANONICAL_SPLIT_PROTOCOL)}`"
             )
-            st.write(f"- **Mục tiêu bao phủ Conformal**: `{model_package.get('target_coverage', 0.8) * 100:.0f}%`")
+            st.write(
+                f"- **Mục tiêu bao phủ Conformal**: `{model_package.get('target_coverage', 0.8) * 100:.0f}%`"
+            )
 
         with c_info2:
             st.markdown("### 🛡️ Nguyên Lý Chống Data Leakage")

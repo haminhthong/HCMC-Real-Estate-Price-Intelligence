@@ -127,15 +127,17 @@ def predict_one(
         upper_bound = float(np.expm1(raw_pred + error_quantile))
 
     # 3. Kiểm tra rào chắn miền và phân rã độ tin cậy
-    warnings, domain_support, interval_risk, reliability_level = check_reliability_guards(
-        feature_frame=feature_frame,
-        values=values,
-        model_package=model_package,
-        predicted_price=predicted_price,
-        lower_bound=lower_bound,
-        upper_bound=upper_bound,
-        input_completeness_score=input_completeness,
-        as_of_date=as_of_date,
+    warnings, domain_support, interval_risk, reliability_level = (
+        check_reliability_guards(
+            feature_frame=feature_frame,
+            values=values,
+            model_package=model_package,
+            predicted_price=predicted_price,
+            lower_bound=lower_bound,
+            upper_bound=upper_bound,
+            input_completeness_score=input_completeness,
+            as_of_date=as_of_date,
+        )
     )
 
     # 4. Tra cứu đơn giá trung vị cùng phân khúc
@@ -156,9 +158,7 @@ def predict_one(
     # 6. Tính SHAP nếu được yêu cầu
     should_explain = include_explanation or values.get("include_explanation", False)
     contributions = (
-        explain_top_features(model_package, feature_frame)
-        if should_explain
-        else []
+        explain_top_features(model_package, feature_frame) if should_explain else []
     )
 
     response = {
@@ -176,7 +176,9 @@ def predict_one(
             "lower_bound_million": round(lower_bound, 1),
             "upper_bound_million": round(upper_bound, 1),
             "interval_width_million": round(upper_bound - lower_bound, 1),
-            "relative_interval_width": round((upper_bound - lower_bound) / max(predicted_price, 1.0), 3),
+            "relative_interval_width": round(
+                (upper_bound - lower_bound) / max(predicted_price, 1.0), 3
+            ),
         },
         "market_context": {
             "segment_median_unit_price_million_m2": (
@@ -185,7 +187,9 @@ def predict_one(
                 else None
             ),
             "comparable_median_price_million": comp_summary["median_price_million"],
-            "comparable_median_unit_price_million_m2": comp_summary["median_unit_price_million_m2"],
+            "comparable_median_unit_price_million_m2": comp_summary[
+                "median_unit_price_million_m2"
+            ],
         },
         "reliability": {
             "overall": reliability_level,
@@ -205,7 +209,7 @@ def predict_one(
             "version": model_package["version"],
             "model_type": model_package.get("model_type", "ExtraTreesRegressor"),
             "target_formulation": target_formulation,
-            "model_status": model_package.get("model_status", "production_ready"),
+            "model_status": model_package.get("model_status", "research_only"),
             "valuation_as_of": as_of_date,
             "model_market_reference": reference_date,
             "market_age_days": market_age_days,
@@ -217,7 +221,7 @@ def predict_one(
         "confidence": reliability_level,
         "reliability_level": reliability_level,
         "model_version": model_package["version"],
-        "model_status": model_package.get("model_status", "production_ready"),
+        "model_status": model_package.get("model_status", "research_only"),
         "valuation_as_of": as_of_date,
         "model_market_reference": reference_date,
         "market_age_days": market_age_days,

@@ -36,6 +36,7 @@ app = FastAPI(
     redoc_url="/redoc",
 )
 
+
 class PredictionRequest(BaseModel):
     """Dữ liệu yêu cầu đầu vào cho một bất động sản cần định giá."""
 
@@ -136,13 +137,27 @@ class PredictionRequest(BaseModel):
         description="Vị trí nhà (Trong hẻm, Đường chính, ...)",
         examples=["Trong hẻm"],
     )
-    title: str | None = Field(default=None, alias="Title", description="Tiêu đề tin đăng")
-    description: str | None = Field(default=None, alias="Description", description="Mô tả tin đăng")
-    has_furniture: bool | None = Field(default=None, description="Tương thích cũ; ưu tiên suy ra từ Description")
-    car_alley: bool | None = Field(default=None, description="Tương thích cũ; ưu tiên suy ra từ Description")
-    near_market: bool | None = Field(default=None, description="Tương thích cũ; ưu tiên suy ra từ Description")
-    near_school: bool | None = Field(default=None, description="Tương thích cũ; ưu tiên suy ra từ Description")
-    is_urgent_sale: bool | None = Field(default=None, description="Tương thích cũ; ưu tiên suy ra từ Description")
+    title: str | None = Field(
+        default=None, alias="Title", description="Tiêu đề tin đăng"
+    )
+    description: str | None = Field(
+        default=None, alias="Description", description="Mô tả tin đăng"
+    )
+    has_furniture: bool | None = Field(
+        default=None, description="Tương thích cũ; ưu tiên suy ra từ Description"
+    )
+    car_alley: bool | None = Field(
+        default=None, description="Tương thích cũ; ưu tiên suy ra từ Description"
+    )
+    near_market: bool | None = Field(
+        default=None, description="Tương thích cũ; ưu tiên suy ra từ Description"
+    )
+    near_school: bool | None = Field(
+        default=None, description="Tương thích cũ; ưu tiên suy ra từ Description"
+    )
+    is_urgent_sale: bool | None = Field(
+        default=None, description="Tương thích cũ; ưu tiên suy ra từ Description"
+    )
     as_of_date: str | None = Field(
         default=None,
         description="Thời điểm định giá tham chiếu (ISO format YYYY-MM-DD; mặc định là ngày hiện tại)",
@@ -158,7 +173,9 @@ class PredictionRequest(BaseModel):
     def supported_type(cls, value: str) -> str:
         """Kiểm tra loại bất động sản có nằm trong danh mục hỗ trợ."""
         if value not in RESIDENTIAL_TYPES:
-            raise ValueError(f"Loại bất động sản '{value}' chưa được hỗ trợ. Danh mục: {RESIDENTIAL_TYPES}")
+            raise ValueError(
+                f"Loại bất động sản '{value}' chưa được hỗ trợ. Danh mục: {RESIDENTIAL_TYPES}"
+            )
         return value
 
     @field_validator("location_area")
@@ -173,25 +190,43 @@ class PredictionRequest(BaseModel):
 class PredictionInterval(BaseModel):
     """Khoảng dự báo Conformal Prediction."""
 
-    lower_bound_million: float = Field(..., description="Cận dưới khoảng dự báo conformal (triệu VND)")
-    upper_bound_million: float = Field(..., description="Cận trên khoảng dự báo conformal (triệu VND)")
-    target_coverage: float = Field(0.8, description="Mức độ bao phủ mục tiêu (0.8 = 80%)")
+    lower_bound_million: float = Field(
+        ..., description="Cận dưới khoảng dự báo conformal (triệu VND)"
+    )
+    upper_bound_million: float = Field(
+        ..., description="Cận trên khoảng dự báo conformal (triệu VND)"
+    )
+    target_coverage: float = Field(
+        0.8, description="Mức độ bao phủ mục tiêu (0.8 = 80%)"
+    )
 
 
 class UncertaintyResponse(BaseModel):
     """Đo lường độ bất định thống kê từ Conformal Calibration."""
 
-    target_coverage: float = Field(0.8, description="Mức độ bao phủ mục tiêu (0.8 = 80%)")
-    lower_bound_million: float = Field(..., description="Cận dưới khoảng dự báo (triệu VND)")
-    upper_bound_million: float = Field(..., description="Cận trên khoảng dự báo (triệu VND)")
-    interval_width_million: float = Field(..., description="Bề rộng khoảng dự báo (triệu VND)")
-    relative_interval_width: float = Field(..., description="Tỷ lệ bề rộng khoảng so với giá ước tính")
+    target_coverage: float = Field(
+        0.8, description="Mức độ bao phủ mục tiêu (0.8 = 80%)"
+    )
+    lower_bound_million: float = Field(
+        ..., description="Cận dưới khoảng dự báo (triệu VND)"
+    )
+    upper_bound_million: float = Field(
+        ..., description="Cận trên khoảng dự báo (triệu VND)"
+    )
+    interval_width_million: float = Field(
+        ..., description="Bề rộng khoảng dự báo (triệu VND)"
+    )
+    relative_interval_width: float = Field(
+        ..., description="Tỷ lệ bề rộng khoảng so với giá ước tính"
+    )
 
 
 class ValuationResponse(BaseModel):
     """Thông tin định giá điểm trung tâm và khoảng dự báo."""
 
-    point_estimate_million: float = Field(..., description="Giá dự báo điểm trung tâm (triệu VND)")
+    point_estimate_million: float = Field(
+        ..., description="Giá dự báo điểm trung tâm (triệu VND)"
+    )
     prediction_interval: PredictionInterval
 
 
@@ -199,25 +234,41 @@ class MarketContextResponse(BaseModel):
     """Bối cảnh thị trường và đơn giá phân khúc cùng loại."""
 
     segment_median_unit_price_million_m2: float | None = Field(
-        None, description="Trung vị đơn giá cùng phân khúc loại hình x quận/huyện (triệu VND/m²)"
+        None,
+        description="Trung vị đơn giá cùng phân khúc loại hình x quận/huyện (triệu VND/m²)",
     )
     comparable_median_price_million: float | None = Field(
         None, description="Trung vị giá của các bất động sản tương đồng (triệu VND)"
     )
     comparable_median_unit_price_million_m2: float | None = Field(
-        None, description="Trung vị đơn giá của các bất động sản tương đồng (triệu VND/m²)"
+        None,
+        description="Trung vị đơn giá của các bất động sản tương đồng (triệu VND/m²)",
     )
 
 
 class ReliabilityResponse(BaseModel):
     """Đánh giá độ tin cậy phân rã đa chiều (Decomposed Reliability)."""
 
-    overall: Literal["low", "medium", "high"] = Field(..., description="Độ tin cậy tổng thể")
-    reliability_level: Literal["low", "medium", "high"] = Field(..., description="Mức độ tin cậy chuẩn hóa")
-    input_completeness_score: float = Field(..., ge=0, le=100, description="Điểm hoàn thiện dữ liệu đầu vào (%)")
-    domain_support: str = Field(..., description="Đánh giá thuộc phân phối huấn luyện (in_domain hoặc warning_ood)")
-    interval_risk: str = Field(..., description="Mức độ rủi ro độ rộng khoảng dự báo (tight, moderate, wide_interval)")
-    warnings: list[str] = Field(default_factory=list, description="Danh sách các cảnh báo OOD hoặc dữ liệu")
+    overall: Literal["low", "medium", "high"] = Field(
+        ..., description="Độ tin cậy tổng thể"
+    )
+    reliability_level: Literal["low", "medium", "high"] = Field(
+        ..., description="Mức độ tin cậy chuẩn hóa"
+    )
+    input_completeness_score: float = Field(
+        ..., ge=0, le=100, description="Điểm hoàn thiện dữ liệu đầu vào (%)"
+    )
+    domain_support: str = Field(
+        ...,
+        description="Đánh giá thuộc phân phối huấn luyện (in_domain hoặc warning_ood)",
+    )
+    interval_risk: str = Field(
+        ...,
+        description="Mức độ rủi ro độ rộng khoảng dự báo (tight, moderate, wide_interval)",
+    )
+    warnings: list[str] = Field(
+        default_factory=list, description="Danh sách các cảnh báo OOD hoặc dữ liệu"
+    )
 
 
 class ComparableProperty(BaseModel):
@@ -251,14 +302,22 @@ class PredictionResponse(BaseModel):
     uncertainty: UncertaintyResponse | None = None
     market_context: MarketContextResponse | None = None
     reliability: ReliabilityResponse | None = None
-    comparables: list[ComparableProperty] = Field(default_factory=list, description="Bất động sản tương đồng")
+    comparables: list[ComparableProperty] = Field(
+        default_factory=list, description="Bất động sản tương đồng"
+    )
     explanation: dict[str, Any] | None = None
     model: ModelMetaResponse | None = None
 
     # Các trường phẳng tương thích ngược (Flat aliases)
-    predicted_price_million: float = Field(..., description="Giá dự báo điểm trung tâm (triệu VND)")
-    lower_bound_million: float = Field(..., description="Cận dưới khoảng dự báo conformal (triệu VND)")
-    upper_bound_million: float = Field(..., description="Cận trên khoảng dự báo conformal (triệu VND)")
+    predicted_price_million: float = Field(
+        ..., description="Giá dự báo điểm trung tâm (triệu VND)"
+    )
+    lower_bound_million: float = Field(
+        ..., description="Cận dưới khoảng dự báo conformal (triệu VND)"
+    )
+    upper_bound_million: float = Field(
+        ..., description="Cận trên khoảng dự báo conformal (triệu VND)"
+    )
     confidence: Literal["low", "medium", "high"] = Field(
         ...,
         description="Chỉ báo heuristic độ tin cậy (low / medium / high)",
@@ -268,12 +327,24 @@ class PredictionResponse(BaseModel):
         description="Chỉ báo độ tin cậy chuẩn hóa",
     )
     model_version: str = Field(..., description="Phiên bản mô hình đang phục vụ")
-    model_status: str = Field(default="production_ready", description="Trạng thái governance của model")
-    valuation_as_of: str | None = Field(default=None, description="Ngày định giá thực tế")
-    model_market_reference: str | None = Field(default=None, description="Mốc dữ liệu cuối của model")
-    market_age_days: int | None = Field(default=None, description="Số ngày model lệch so với ngày định giá")
-    warnings: list[str] = Field(default_factory=list, description="Danh sách các cảnh báo")
-    data_quality_score: float = Field(..., ge=0, le=100, description="Điểm hoàn thiện dữ liệu (0-100%)")
+    model_status: str = Field(
+        default="production_ready", description="Trạng thái governance của model"
+    )
+    valuation_as_of: str | None = Field(
+        default=None, description="Ngày định giá thực tế"
+    )
+    model_market_reference: str | None = Field(
+        default=None, description="Mốc dữ liệu cuối của model"
+    )
+    market_age_days: int | None = Field(
+        default=None, description="Số ngày model lệch so với ngày định giá"
+    )
+    warnings: list[str] = Field(
+        default_factory=list, description="Danh sách các cảnh báo"
+    )
+    data_quality_score: float = Field(
+        ..., ge=0, le=100, description="Điểm hoàn thiện dữ liệu (0-100%)"
+    )
     input_completeness_score: float = Field(
         default=100.0,
         ge=0,
@@ -285,7 +356,8 @@ class PredictionResponse(BaseModel):
         description="Top 5 đặc trưng ảnh hưởng nhiều nhất (SHAP values)",
     )
     segment_median_unit_price_million_m2: float | None = Field(
-        None, description="Trung vị đơn giá cùng phân khúc loại hình x quận/huyện (triệu VND/m²)"
+        None,
+        description="Trung vị đơn giá cùng phân khúc loại hình x quận/huyện (triệu VND/m²)",
     )
     disclaimer: str = Field(..., description="Cảnh báo pháp lý và miễn trừ trách nhiệm")
 
@@ -322,7 +394,12 @@ def model_info() -> dict[str, Any]:
         raise HTTPException(status_code=503, detail=str(exc)) from exc
 
 
-@app.post("/predict", response_model=PredictionResponse, summary="Dự báo giá bất động sản", tags=["Prediction"])
+@app.post(
+    "/predict",
+    response_model=PredictionResponse,
+    summary="Dự báo giá bất động sản",
+    tags=["Prediction"],
+)
 def predict(request: PredictionRequest) -> dict[str, Any]:
     """Tiếp nhận thông tin chi tiết bất động sản và trả về giá dự báo cùng khoảng dự báo (Prediction Interval)."""
     try:
@@ -339,7 +416,12 @@ def predict(request: PredictionRequest) -> dict[str, Any]:
         raise HTTPException(status_code=503, detail=str(exc)) from exc
 
 
-@app.post("/explain", response_model=PredictionResponse, summary="Dự báo giá kèm giải thích SHAP", tags=["Prediction"])
+@app.post(
+    "/explain",
+    response_model=PredictionResponse,
+    summary="Dự báo giá kèm giải thích SHAP",
+    tags=["Prediction"],
+)
 def explain(request: PredictionRequest) -> dict[str, Any]:
     """Tiếp nhận thông tin bất động sản và trả về giá dự báo kèm top 5 đặc trưng SHAP (yêu cầu xử lý CPU cao hơn)."""
     try:
@@ -353,7 +435,11 @@ def explain(request: PredictionRequest) -> dict[str, Any]:
         raise HTTPException(status_code=503, detail=str(exc)) from exc
 
 
-@app.get("/market/districts", summary="Thống kê trung vị giá theo quận/huyện", tags=["Market Intelligence"])
+@app.get(
+    "/market/districts",
+    summary="Thống kê trung vị giá theo quận/huyện",
+    tags=["Market Intelligence"],
+)
 def get_market_districts() -> dict[str, Any]:
     """Trả về bảng tra cứu đơn giá trung vị và danh mục khu vực được hỗ trợ tại TP.HCM."""
     try:
@@ -371,7 +457,9 @@ def get_market_districts() -> dict[str, Any]:
             prices = district_data.get(area_name, [])
             districts_summary[area_name] = {
                 "supported": True,
-                "median_unit_price_million_m2": round(float(np.median(prices)), 1) if prices else None,
+                "median_unit_price_million_m2": round(float(np.median(prices)), 1)
+                if prices
+                else None,
                 "property_types_tracked": len(prices),
             }
 

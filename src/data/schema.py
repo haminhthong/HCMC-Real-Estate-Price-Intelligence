@@ -53,5 +53,7 @@ def validate_raw_schema(df: pd.DataFrame) -> pd.DataFrame:
     """
     missing = REQUIRED_RAW_COLUMNS - set(df.columns)
     if missing:
-        raise ValueError(f"Thiếu các cột bắt buộc trong dữ liệu đầu vào: {sorted(missing)}")
+        raise ValueError(
+            f"Thiếu các cột bắt buộc trong dữ liệu đầu vào: {sorted(missing)}"
+        )
     return df

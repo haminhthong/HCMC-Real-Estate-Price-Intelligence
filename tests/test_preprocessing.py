@@ -31,11 +31,7 @@ def sample_df():
 
 def test_preprocessing_has_no_nonfinite_values():
     frame = make_features(clean_data(sample_df()))
-    transformed = (
-        build_pipeline()
-        .named_steps["preprocessor"]
-        .fit_transform(frame)
-    )
+    transformed = build_pipeline().named_steps["preprocessor"].fit_transform(frame)
     assert np.isfinite(transformed).all()
 
 
@@ -50,9 +46,7 @@ def test_target_is_not_a_feature():
 
 
 def test_supplied_amenities_are_not_overwritten():
-    frame = pd.DataFrame(
-        [{"has_furniture": True, "car_alley": True}]
-    )
+    frame = pd.DataFrame([{"has_furniture": True, "car_alley": True}])
     features = make_features(frame)
     assert features.loc[0, "has_furniture"] == 1
     assert features.loc[0, "car_alley"] == 1
@@ -115,9 +109,7 @@ def test_property_group_size_max_greater_than_one():
 
 
 def test_spatial_and_quality_features_are_created():
-    frame = pd.DataFrame(
-        [{"Latitude": 10.7769, "Longitude": 106.7009, "Bedrooms": 2}]
-    )
+    frame = pd.DataFrame([{"Latitude": 10.7769, "Longitude": 106.7009, "Bedrooms": 2}])
     features = make_features(frame)
     assert features.loc[0, "distance_to_cbd_km"] < 0.1
     assert 0 < features.loc[0, "input_completeness_score"] < 100

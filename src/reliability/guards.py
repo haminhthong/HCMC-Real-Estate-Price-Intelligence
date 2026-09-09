@@ -50,8 +50,10 @@ def check_reliability_guards(
     for feature, bounds in quantiles_dict.items():
         if feature in feature_frame.columns:
             val = feature_frame.iloc[0].get(feature)
-            if pd.notna(val) and np.isfinite(float(val)) and not (
-                bounds[0] <= float(val) <= bounds[1]
+            if (
+                pd.notna(val)
+                and np.isfinite(float(val))
+                and not (bounds[0] <= float(val) <= bounds[1])
             ):
                 warnings.append(
                     f"CẢNH BÁO PHẠM VI (OOD): Đặc trưng '{feature}'={val} nằm ngoài phân vị huấn luyện P01–P99 "
@@ -62,18 +64,24 @@ def check_reliability_guards(
     location_area = values.get("location_area")
     supported_areas = model_package.get("supported_areas", [])
     if location_area and supported_areas and location_area not in supported_areas:
-        warnings.append("CẢNH BÁO KHU VỰC: Khu vực này chưa xuất hiện trong tập huấn luyện.")
+        warnings.append(
+            "CẢNH BÁO KHU VỰC: Khu vực này chưa xuất hiện trong tập huấn luyện."
+        )
 
     property_type = values.get("Property Type")
     supported_types = model_package.get("supported_property_types", [])
     if property_type and supported_types and property_type not in supported_types:
-        warnings.append("CẢNH BÁO LOẠI HÌNH: Loại bất động sản này chưa xuất hiện trong tập huấn luyện.")
+        warnings.append(
+            "CẢNH BÁO LOẠI HÌNH: Loại bất động sản này chưa xuất hiện trong tập huấn luyện."
+        )
 
     # 3. Rào chắn tọa độ GPS và độ hoàn thiện thông tin
     lat_val = values.get("Latitude")
     lon_val = values.get("Longitude")
     if lat_val is None or pd.isna(lat_val) or lon_val is None or pd.isna(lon_val):
-        warnings.append("CẢNH BÁO TỌA ĐỘ: Thiếu GPS (vĩ độ/kinh độ) nên mô hình không dùng được khoảng cách CBD.")
+        warnings.append(
+            "CẢNH BÁO TỌA ĐỘ: Thiếu GPS (vĩ độ/kinh độ) nên mô hình không dùng được khoảng cách CBD."
+        )
 
     if input_completeness_score < 60.0:
         warnings.append(
@@ -82,7 +90,12 @@ def check_reliability_guards(
 
     # 4. Rào chắn dữ liệu hóa phân khúc cao cấp (P90 Target Percentile) và phân khúc hỗ trợ thấp
     target_p90 = float(
-        model_package.get("target_p90", model_package.get("data_card", {}).get("target_percentiles", {}).get("p90", 22740.0))
+        model_package.get(
+            "target_p90",
+            model_package.get("data_card", {})
+            .get("target_percentiles", {})
+            .get("p90", 22740.0),
+        )
     )
     if predicted_price > target_p90:
         warnings.append(
@@ -137,12 +150,15 @@ def check_reliability_guards(
     )
     # Hỗ trợ cả 'warning' và 'warning_ood' để giữ tính tương thích ngược với các assertion test cũ
     has_domain_warning = any(
-        "CẢNH BÁO" in warning or warning.startswith("STALE_")
-        for warning in warnings
+        "CẢNH BÁO" in warning or warning.startswith("STALE_") for warning in warnings
     )
     domain_support = "warning_ood" if has_domain_warning else "in_domain"
 
-    if domain_support == "warning_ood" or interval_risk == "wide_interval" or input_completeness_score < 60.0:
+    if (
+        domain_support == "warning_ood"
+        or interval_risk == "wide_interval"
+        or input_completeness_score < 60.0
+    ):
         reliability_level = "low"
     elif interval_risk == "moderate":
         reliability_level = "medium"

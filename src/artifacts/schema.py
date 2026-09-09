@@ -20,17 +20,21 @@ from typing import Any
 class DevelopmentGateCriteria:
     """Tiêu chuẩn định lượng để phê duyệt Champion Model trên tập Validation."""
 
-    min_baseline_improvement: float = 0.10  # MAE trên Validation phải tốt hơn Naive ít nhất 10%
-    max_validation_wape: float = 0.35       # WAPE trên Validation chấp nhận được
+    min_baseline_improvement: float = (
+        0.10  # MAE trên Validation phải tốt hơn Naive ít nhất 10%
+    )
+    max_validation_wape: float = 0.35  # WAPE trên Validation chấp nhận được
 
 
 @dataclass
 class ReleaseGateCriteria:
     """Tiêu chuẩn định lượng để phê duyệt mô hình lên môi trường phục vụ (Release Gate)."""
 
-    max_test_wape: float = 0.30             # WAPE trên Test <= 30% để sẵn sàng sản xuất
-    min_test_coverage: float = 0.75         # Độ bao phủ thực tế trên Test set >= 75%
-    max_relative_interval_width: float = 1.50 # Bề rộng tương đối khoảng dự báo không vượt quá 150%
+    max_test_wape: float = 0.30  # WAPE trên Test <= 30% để sẵn sàng sản xuất
+    min_test_coverage: float = 0.75  # Độ bao phủ thực tế trên Test set >= 75%
+    max_relative_interval_width: float = (
+        1.50  # Bề rộng tương đối khoảng dự báo không vượt quá 150%
+    )
 
 
 @dataclass
@@ -54,7 +58,7 @@ def evaluate_development_gate(
 
     improvement = (naive_val_mae - champion_val_mae) / max(naive_val_mae, 1.0)
     beats_baseline = bool(improvement >= criteria.min_baseline_improvement)
-    
+
     # Hỗ trợ cả hai dạng biểu diễn: tỷ lệ (0.28) hoặc phần trăm (28.0%)
     wape_ratio = val_wape / 100.0 if val_wape > 1.0 else val_wape
     wape_acceptable = bool(wape_ratio <= criteria.max_validation_wape)

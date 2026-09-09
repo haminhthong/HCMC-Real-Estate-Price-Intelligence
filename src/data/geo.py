@@ -71,9 +71,8 @@ def validate_gps_coordinates(
     """
     out = df.copy()
     if lat_col in out and lon_col in out:
-        valid_coords = (
-            out[lat_col].between(10.3, 11.2)
-            & out[lon_col].between(106.3, 107.0)
+        valid_coords = out[lat_col].between(10.3, 11.2) & out[lon_col].between(
+            106.3, 107.0
         )
         out.loc[~valid_coords, [lat_col, lon_col]] = np.nan
     return out

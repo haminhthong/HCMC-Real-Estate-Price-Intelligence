@@ -26,7 +26,7 @@ jobs:
       - name: Check dependency consistency
         run: python -m pip check
       - name: Run Ruff
-        run: python -m ruff check --no-cache api app src
+        run: python -m ruff check --no-cache api app src tests
       - name: Run tests
         env:
           PYTHONDONTWRITEBYTECODE: "1"

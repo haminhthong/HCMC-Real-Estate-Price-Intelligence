@@ -51,7 +51,10 @@ def add_text_flags(df: pd.DataFrame) -> pd.DataFrame:
             # Không dùng has_text.any() vì một dòng có text không được làm
             # mất giá trị fallback của các dòng khác trong cùng batch.
             supplied = pd.to_numeric(out[flag], errors="coerce")
-            out[flag] = extracted.where(has_text | supplied.isna(), supplied)
+            resolved = extracted.astype("float64")
+            fallback_mask = ~has_text & supplied.notna()
+            resolved.loc[fallback_mask] = supplied.loc[fallback_mask].astype("float64")
+            out[flag] = resolved
         else:
             out[flag] = extracted
 

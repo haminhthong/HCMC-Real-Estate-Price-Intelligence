@@ -6,6 +6,11 @@ import numpy as np
 import pandas as pd
 
 
+def _positions(mask: pd.Series) -> np.ndarray:
+    """Đổi boolean mask thành vị trí nguyên để dùng an toàn với ``DataFrame.iloc``."""
+    return np.flatnonzero(mask.to_numpy(dtype=bool))
+
+
 def split_group_indices(
     df: pd.DataFrame,
 ) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
@@ -40,6 +45,10 @@ def split_group_indices(
         .sort_values(["listing_date", "property_group_id"])
     )
     number_of_groups = len(ordered_groups)
+    if number_of_groups < 7:
+        raise ValueError(
+            "Cần ít nhất 7 property_group_id có ngày hợp lệ để tạo đủ 4 tập temporal không rỗng."
+        )
     train_end = int(number_of_groups * 0.60)
     validation_end = int(number_of_groups * 0.75)
     calibration_end = int(number_of_groups * 0.85)
@@ -57,14 +66,14 @@ def split_group_indices(
         ordered_groups.iloc[calibration_end:]["property_group_id"]
     )
 
-    train_idx = df.index[df["property_group_id"].isin(train_groups) & df["listing_date"].notna()].to_numpy()
-    validation_idx = df.index[
+    train_idx = _positions(df["property_group_id"].isin(train_groups) & df["listing_date"].notna())
+    validation_idx = _positions(
         df["property_group_id"].isin(validation_groups) & df["listing_date"].notna()
-    ].to_numpy()
-    calibration_idx = df.index[
+    )
+    calibration_idx = _positions(
         df["property_group_id"].isin(calibration_groups) & df["listing_date"].notna()
-    ].to_numpy()
-    test_idx = df.index[df["property_group_id"].isin(test_groups) & df["listing_date"].notna()].to_numpy()
+    )
+    test_idx = _positions(df["property_group_id"].isin(test_groups) & df["listing_date"].notna())
 
     # Kiểm tra tính toàn vẹn (Disjointness test giữa cả 4 tập)
     group_sets = [
@@ -123,8 +132,8 @@ def split_strict_temporal_purged(
     # Purge overlapping groups from test set to preserve strict temporal anti-leakage
     clean_test_mask = test_mask & (~df["property_group_id"].isin(overlapping_groups))
 
-    train_indices = df.index[train_mask].to_numpy()
-    test_indices = df.index[clean_test_mask].to_numpy()
+    train_indices = _positions(train_mask)
+    test_indices = _positions(clean_test_mask)
 
     audit = {
         "protocol": "strict_temporal_purged",
@@ -176,11 +185,14 @@ def split_canonical_temporal_purged(
     test_groups = set(dated.loc[test_mask, "property_group_id"])
     test_groups -= development_groups | calibration_groups
 
-    development_indices = dated.index[development_mask].to_numpy()
-    calibration_indices = dated.index[
-        calibration_mask & dated["property_group_id"].isin(calibration_groups)
-    ].to_numpy()
-    test_indices = dated.index[test_mask & dated["property_group_id"].isin(test_groups)].to_numpy()
+    dated_positions = np.flatnonzero(df["listing_date"].notna().to_numpy(dtype=bool))
+    development_indices = dated_positions[development_mask.to_numpy(dtype=bool)]
+    calibration_indices = dated_positions[
+        (calibration_mask & dated["property_group_id"].isin(calibration_groups)).to_numpy(dtype=bool)
+    ]
+    test_indices = dated_positions[
+        (test_mask & dated["property_group_id"].isin(test_groups)).to_numpy(dtype=bool)
+    ]
 
     return development_indices, calibration_indices, test_indices, {
         "protocol": "strict_temporal_property_purged_70_10_20",

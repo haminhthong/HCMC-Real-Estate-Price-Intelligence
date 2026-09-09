@@ -1,7 +1,7 @@
 """Kiểm thử cho Comparable Context, Comparable Engine và Offline Evaluation."""
 
 import pandas as pd
-import pytest
+
 from src.comparables import ComparableContext, evaluate_comparables_on_validation, find_comparables
 
 

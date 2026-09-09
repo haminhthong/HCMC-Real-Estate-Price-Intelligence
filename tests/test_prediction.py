@@ -1,4 +1,6 @@
 from pathlib import Path
+import json
+import tempfile
 
 import joblib
 import numpy as np
@@ -35,9 +37,6 @@ def test_missing_model_artifact_raises_file_not_found():
         load_model(fake_path)
 
 
-import tempfile
-
-
 def test_malformed_model_artifact_raises_value_error():
     load_model.cache_clear()
     with tempfile.TemporaryDirectory() as temp_dir:
@@ -62,6 +61,20 @@ def test_real_model_prediction_schema():
     assert result["upper_bound_million"] >= result["lower_bound_million"]
     assert result["confidence"] in ("low", "medium", "high")
     assert result["top_contributions"] == []
+
+
+def test_prediction_response_is_strict_json_serializable():
+    load_model.cache_clear()
+    result = predict_one(
+        {
+            "Property Type": "Nhà riêng",
+            "location_area": "Quận 1",
+            "Area": 75.0,
+            "Bedrooms": 3,
+        }
+    )
+
+    json.dumps(result, allow_nan=False)
 
 
 @pytest.mark.filterwarnings("ignore::DeprecationWarning")

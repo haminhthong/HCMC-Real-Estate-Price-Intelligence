@@ -1,8 +1,6 @@
 """Bộ kiểm thử 5 nguyên tắc Lifecycle & Chống rò rỉ dữ liệu (Anti-Leakage) cốt lõi."""
 
-import numpy as np
 import pandas as pd
-import pytest
 
 from src.calibration.conformal import calibrate_conformal
 from src.config import DATA_PATH, MODEL_FEATURES

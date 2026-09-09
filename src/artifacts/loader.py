@@ -121,7 +121,7 @@ def load_production_model(model_override_path: Path | str | None = None) -> dict
             "segment_sample_counts": comparable_context.get("segment_counts", {}),
             "promotion_status": metadata.get("promotion", {}),
             "model_status": metadata.get("promotion", {}).get(
-                "production_readiness", "production_ready"
+                "production_readiness", "research_only"
             ),
         }
     except Exception as exc:

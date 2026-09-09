@@ -1,7 +1,6 @@
 """Kiểm thử đơn vị cho mô-đun Features và FeatureContext."""
 
 import pandas as pd
-from src.features.builder import build_features
 from src.features.context import FeatureContext
 from src.features.geospatial import calculate_distance_to_cbd
 from src.features.text import add_text_flags
@@ -62,4 +61,3 @@ def test_as_of_date_and_missing_indicators():
     assert feats["length_missing"].iloc[0] == 1
     assert feats["bedrooms_missing"].iloc[0] == 1
     assert feats["bathrooms_missing"].iloc[0] == 1
-

@@ -72,3 +72,20 @@ def test_protocol_b_strict_temporal_purged():
     assert "protocol_a_group_isolated" in comparison
     assert "protocol_b_strict_temporal" in comparison
 
+
+def test_split_returns_iloc_positions_for_non_default_index():
+    frame = pd.DataFrame(
+        {
+            "property_group_id": [f"group-{index}" for index in range(14)],
+            "listing_date": pd.date_range("2025-01-01", periods=14),
+        },
+        index=[index * 10 for index in range(14)],
+    )
+
+    train, validation, calibration, test = split_group_indices(frame)
+
+    assert all(index < len(frame) for index in (*train, *validation, *calibration, *test))
+    selected = pd.concat(
+        [frame.iloc[train], frame.iloc[validation], frame.iloc[calibration], frame.iloc[test]]
+    )
+    assert set(selected.index) == set(frame.index)

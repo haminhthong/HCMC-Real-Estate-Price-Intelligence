@@ -8,17 +8,17 @@ và đồ thị giải thích SHAP cho từng kết quả định giá.
 import sys
 from pathlib import Path
 
+import pandas as pd
+import streamlit as st
+
 # Thêm thư mục gốc vào PYTHONPATH
 ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
-import pandas as pd
-import streamlit as st
-
-from src.artifacts.loader import load_production_model as load_model
-from src.config import CANONICAL_SPLIT_PROTOCOL, RESIDENTIAL_TYPES, SUPPORTED_AREAS
-from src.serving.predictor import predict_one
+from src.artifacts.loader import load_production_model as load_model  # noqa: E402
+from src.config import CANONICAL_SPLIT_PROTOCOL, RESIDENTIAL_TYPES, SUPPORTED_AREAS  # noqa: E402
+from src.serving.predictor import predict_one  # noqa: E402
 
 # ---------------------------------------------------------------------------
 # Cấu hình trang Streamlit và kiểu hiển thị

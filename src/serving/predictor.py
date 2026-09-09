@@ -17,6 +17,26 @@ from src.reliability.guards import check_reliability_guards
 from .explain import explain_top_features
 
 
+def _json_safe(value: Any) -> Any:
+    """Chuẩn hóa response về các kiểu JSON hợp lệ trước khi trả qua API."""
+    if value is pd.NA or value is pd.NaT:
+        return None
+    if value is None or isinstance(value, (str, bool, int)):
+        return value
+    if isinstance(value, (float, np.floating)):
+        numeric_value = float(value)
+        return numeric_value if np.isfinite(numeric_value) else None
+    if isinstance(value, np.integer):
+        return int(value)
+    if isinstance(value, (pd.Timestamp, datetime)):
+        return value.isoformat()
+    if isinstance(value, dict):
+        return {str(key): _json_safe(item) for key, item in value.items()}
+    if isinstance(value, (list, tuple, np.ndarray)):
+        return [_json_safe(item) for item in value]
+    return value
+
+
 def predict_one(
     values: dict[str, Any],
     include_explanation: bool = False,
@@ -141,7 +161,7 @@ def predict_one(
         else []
     )
 
-    return {
+    response = {
         # Cấu trúc phân tầng tiêu chuẩn 5 trụ cột
         "valuation": {
             "point_estimate_million": round(predicted_price, 1),
@@ -215,3 +235,4 @@ def predict_one(
             "không phải giá giao dịch thực tế hoặc văn bản thẩm định giá chuyên nghiệp."
         ),
     }
+    return _json_safe(response)

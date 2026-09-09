@@ -20,6 +20,15 @@ import pandas as pd
 from .context import ComparableContext
 
 
+def _finite_float(value: Any, fallback: float | None = None) -> float | None:
+    """Đọc số thực hữu hạn; coi NaN/Inf và giá trị lỗi là dữ liệu thiếu."""
+    try:
+        numeric_value = float(value)
+    except (TypeError, ValueError):
+        return fallback
+    return numeric_value if np.isfinite(numeric_value) else fallback
+
+
 def haversine_km(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
     """Tính khoảng cách Haversine (km) giữa 2 tọa độ GPS."""
     r = 6371.0
@@ -67,24 +76,13 @@ def find_comparables(
         utc=True,
     )
 
-    target_area = (
-        float(values.get("Area", context.median_area))
-        if pd.notna(values.get("Area")) and float(values.get("Area")) > 0
-        else context.median_area
-    )
-    target_beds = (
-        float(values.get("Bedrooms", 3.0))
-        if pd.notna(values.get("Bedrooms"))
-        else 3.0
-    )
-    target_baths = (
-        float(values.get("Bathrooms", 2.0))
-        if pd.notna(values.get("Bathrooms"))
-        else 2.0
-    )
-    target_lat = float(values["Latitude"]) if pd.notna(values.get("Latitude")) else None
-    target_lon = float(values["Longitude"]) if pd.notna(values.get("Longitude")) else None
-    target_cbd = float(values["distance_to_cbd_km"]) if pd.notna(values.get("distance_to_cbd_km")) else None
+    target_area = _finite_float(values.get("Area"), context.median_area)
+    target_area = target_area if target_area and target_area > 0 else context.median_area
+    target_beds = _finite_float(values.get("Bedrooms"), 3.0) or 3.0
+    target_baths = _finite_float(values.get("Bathrooms"), 2.0) or 2.0
+    target_lat = _finite_float(values.get("Latitude"))
+    target_lon = _finite_float(values.get("Longitude"))
+    target_cbd = _finite_float(values.get("distance_to_cbd_km"))
 
     def is_dated_past_listing(reference: dict[str, Any]) -> bool:
         """Chặn future listing khi query có mốc thời gian định giá.
@@ -122,8 +120,8 @@ def find_comparables(
     area_candidates = [
         r
         for r in dated_candidates
-        if r.get("area") is None
-        or abs(float(r["area"]) - target_area) / max(target_area, 1.0) <= 0.25
+        if _finite_float(r.get("area")) is None
+        or abs(_finite_float(r.get("area")) - target_area) / max(target_area, 1.0) <= 0.25
     ]
     local_candidates = [
         r for r in area_candidates if r.get("location_area") == target_area_name
@@ -145,12 +143,15 @@ def find_comparables(
 
     scored = []
     for c in candidates:
-        c_area = float(c["area"]) if c.get("area") else target_area
-        c_beds = float(c["bedrooms"]) if c.get("bedrooms") else target_beds
-        c_baths = float(c["bathrooms"]) if c.get("bathrooms") else target_baths
-        c_lat = float(c["latitude"]) if c.get("latitude") is not None and pd.notna(c.get("latitude")) else None
-        c_lon = float(c["longitude"]) if c.get("longitude") is not None and pd.notna(c.get("longitude")) else None
-        c_cbd = float(c["distance_to_cbd_km"]) if c.get("distance_to_cbd_km") is not None and pd.notna(c.get("distance_to_cbd_km")) else None
+        c_area_value = _finite_float(c.get("area"))
+        c_beds_value = _finite_float(c.get("bedrooms"))
+        c_baths_value = _finite_float(c.get("bathrooms"))
+        c_area = c_area_value if c_area_value and c_area_value > 0 else target_area
+        c_beds = c_beds_value if c_beds_value is not None else target_beds
+        c_baths = c_baths_value if c_baths_value is not None else target_baths
+        c_lat = _finite_float(c.get("latitude"))
+        c_lon = _finite_float(c.get("longitude"))
+        c_cbd = _finite_float(c.get("distance_to_cbd_km"))
 
         # a) Khoảng cách diện tích chuẩn hóa
         area_dist = min(abs(c_area - target_area) / max(target_area, 10.0), 2.0)

@@ -60,14 +60,12 @@ def run_pipeline(
     # Chọn mô hình và biến mục tiêu bằng tập xác thực.
     selection_result = select_champion_model(df_train=df_train, df_val=df_val)
     selected_model_name = selection_result["selected_model_name"]
-    selected_target_fmt = selection_result["selected_target_fmt"]
 
     # Huấn luyện lại mô hình được chọn trên tập huấn luyện và xác thực gộp.
     refit_result = refit_champion_model(
         df_train=df_train,
         df_val=df_val,
         selected_model_name=selected_model_name,
-        selected_target_fmt=selected_target_fmt,
     )
     champion_pipeline = refit_result["champion_pipeline"]
     final_feature_context = refit_result["final_feature_context"]
@@ -78,7 +76,6 @@ def run_pipeline(
         model_pipeline=champion_pipeline,
         features_calib=features_calib,
         df_calib=df_calib,
-        target_formulation=selected_target_fmt,
         target_coverage=0.8,
     )
 
@@ -88,7 +85,6 @@ def run_pipeline(
         champion_pipeline=champion_pipeline,
         df_test=df_test,
         features_test=features_test,
-        selected_target_fmt=selected_target_fmt,
         residual_log_quantile=calibration_result["residual_log_quantile"],
         naive_baseline=refit_result["naive_baseline"],
         segment_baseline=refit_result["segment_baseline"],
@@ -205,9 +201,12 @@ def run_pipeline(
         {
             "model_version": model_version,
             "model_type": selected_model_name,
-            "target_formulation": selected_target_fmt,
+            "target_formulation": "total_price",
             "property_types": sorted(
-                clean_df["Property Type"].dropna().unique().tolist()
+                ref_df["Property Type"].dropna().unique().tolist()
+            ),
+            "supported_areas": sorted(
+                ref_df["location_area"].dropna().unique().tolist()
             ),
             "split_summary": split_summary,
         }
@@ -246,7 +245,7 @@ def run_pipeline(
     return {
         "model_version": model_version,
         "champion_model": selected_model_name,
-        "target_formulation": selected_target_fmt,
+        "target_formulation": "total_price",
         "champion_metrics": champion_metrics,
         "interval_metrics": int_metrics,
         "artifact_paths": {k: str(v) for k, v in artifact_paths.items()},

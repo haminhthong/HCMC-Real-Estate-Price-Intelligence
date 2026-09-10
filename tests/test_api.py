@@ -9,6 +9,18 @@ def test_health_schema():
     response = client.get("/health")
     assert response.status_code == 200
     assert {"status", "model_loaded"}.issubset(response.json())
+    assert response.json()["model_loaded"] is True
+    assert response.json()["model_type"]
+
+
+def test_health_rejects_corrupt_model(monkeypatch):
+    """File tồn tại nhưng không đọc được phải làm readiness thất bại."""
+
+    def broken_model():
+        raise EOFError("Artifact bị cắt ngắn")
+
+    monkeypatch.setattr("api.main.load_model", broken_model)
+    assert client.get("/health").status_code == 503
 
 
 def test_invalid_area_is_rejected():

@@ -18,7 +18,6 @@ def refit_champion_model(
     df_train: pd.DataFrame,
     df_val: pd.DataFrame,
     selected_model_name: str,
-    selected_target_fmt: str,
 ) -> dict[str, Any]:
     """Tái huấn luyện duy nhất Champion Model trên tập dữ liệu gộp Train + Validation (75%).
 
@@ -28,9 +27,7 @@ def refit_champion_model(
     3. Đóng băng `final_feature_context` làm quy chuẩn cho Calibration, Test và Serving.
     4. Lưu miền giá trị quan sát của feature để cảnh báo input nằm ngoài dữ liệu train.
     """
-    logger.info(
-        "--- BẮT ĐẦU PHASE B: FINAL REFIT CHAMPION MODEL TRÊN TRAIN + VALIDATION (75%) ---"
-    )
+    logger.info("Huấn luyện lại %s trên Train + Validation", selected_model_name)
 
     df_train_dev = pd.concat([df_train, df_val], ignore_index=True)
     logger.info("Tập gộp Train + Validation có %d bản ghi.", len(df_train_dev))
@@ -46,10 +43,7 @@ def refit_champion_model(
     features_train_dev = build_features(df_train_dev, context=final_feature_context)
 
     # 3. Chuẩn bị biến mục tiêu
-    if selected_target_fmt == "total_price":
-        y_train_dev = np.log1p(df_train_dev["Price"])
-    else:
-        y_train_dev = np.log1p(df_train_dev["Price"] / df_train_dev["Area"])
+    y_train_dev = np.log1p(df_train_dev["Price"].to_numpy())
 
     # 4. Refit pipeline
     champion_pipeline: Pipeline = build_pipeline(selected_model_name).fit(
@@ -57,9 +51,8 @@ def refit_champion_model(
         y_train_dev,
     )
     logger.info(
-        "Refit hoàn tất cho champion model '%s' (target=%s).",
+        "Huấn luyện lại hoàn tất cho mô hình %s.",
         selected_model_name,
-        selected_target_fmt,
     )
 
     # 5. Fit các mô hình cơ sở thẩm định trên Train + Val phục vụ so sánh và bối cảnh
@@ -93,5 +86,4 @@ def refit_champion_model(
         "segment_unit_prices": segment_unit_prices,
         "training_ranges": training_ranges,
         "selected_model_name": selected_model_name,
-        "selected_target_fmt": selected_target_fmt,
     }

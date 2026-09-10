@@ -3,9 +3,10 @@
 from typing import Any
 
 from fastapi import FastAPI, HTTPException
-from pydantic import BaseModel, ConfigDict, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field
 
-from src.config import MODEL_PATH, MODEL_VERSION, RESIDENTIAL_TYPES, SUPPORTED_AREAS
+from src.artifacts.loader import load_model
+from src.config import MODEL_VERSION
 from src.serving.predictor import predict_one
 
 app = FastAPI(
@@ -45,22 +46,6 @@ class PredictionRequest(BaseModel):
     is_urgent_sale: bool | None = None
     as_of_date: str | None = None
     include_explanation: bool = False
-
-    @field_validator("property_type")
-    @classmethod
-    def supported_type(cls, value: str) -> str:
-        """Chỉ nhận loại hình có trong phạm vi dữ liệu."""
-        if value not in RESIDENTIAL_TYPES:
-            raise ValueError(f"Loại bất động sản '{value}' chưa được hỗ trợ.")
-        return value
-
-    @field_validator("location_area")
-    @classmethod
-    def supported_area(cls, value: str) -> str:
-        """Chỉ nhận khu vực có trong phạm vi dữ liệu."""
-        if value not in SUPPORTED_AREAS:
-            raise ValueError(f"Khu vực '{value}' chưa được hỗ trợ.")
-        return value
 
 
 class PredictionInterval(BaseModel):
@@ -103,12 +88,18 @@ class PredictionResponse(BaseModel):
 
 @app.get("/health", summary="Kiểm tra API và artifact model")
 def health() -> dict[str, Any]:
-    """Kiểm tra server có thấy model artifact hiện tại hay chưa."""
-    return {
-        "status": "ok",
-        "model_loaded": MODEL_PATH.exists(),
-        "service": "HCMC Real Estate Price Intelligence API",
-    }
+    """Kiểm tra mô hình và dữ liệu phục vụ dự báo nạp được vào tiến trình."""
+    try:
+        package = load_model()
+        return {
+            "status": "ok",
+            "model_loaded": True,
+            "model_version": package["version"],
+            "model_type": package["model_type"],
+        }
+    except Exception as exc:
+        # Lỗi đọc artifact, kể cả model nhị phân hỏng, làm readiness thất bại.
+        raise HTTPException(status_code=503, detail="Model unavailable") from exc
 
 
 @app.post(

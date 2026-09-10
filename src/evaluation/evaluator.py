@@ -16,7 +16,6 @@ def evaluate_champion_on_test(
     champion_pipeline: Pipeline,
     df_test: pd.DataFrame,
     features_test: pd.DataFrame,
-    selected_target_fmt: str,
     residual_log_quantile: float,
     naive_baseline: Any,
     segment_baseline: Any,
@@ -28,7 +27,7 @@ def evaluate_champion_on_test(
     so sánh ứng viên hoặc tune model. Báo cáo gồm metrics hồi quy, khoảng dự
     báo và phân tích slice.
     """
-    logger.info("--- BẮT ĐẦU ĐÁNH GIÁ ĐỘC LẬP TRÊN TẬP TEST (15%) ---")
+    logger.info("Đánh giá cuối cùng trên tập kiểm tra theo nhóm và thời gian")
     test_actual = df_test["Price"].to_numpy()
 
     # 1. Đánh giá Naive Median Baseline trên Test
@@ -41,26 +40,9 @@ def evaluate_champion_on_test(
 
     # 3. Đánh giá Champion Model trên Test
     test_raw_pred = champion_pipeline.predict(features_test)
-    if selected_target_fmt == "price_per_m2":
-        test_pred_price = np.maximum(
-            np.expm1(test_raw_pred) * df_test["Area"].to_numpy(),
-            0.0,
-        )
-        lower_bound = np.maximum(
-            np.expm1(test_raw_pred - residual_log_quantile)
-            * df_test["Area"].to_numpy(),
-            0.0,
-        )
-        upper_bound = (
-            np.expm1(test_raw_pred + residual_log_quantile) * df_test["Area"].to_numpy()
-        )
-    else:
-        test_pred_price = np.maximum(np.expm1(test_raw_pred), 0.0)
-        lower_bound = np.maximum(
-            np.expm1(test_raw_pred - residual_log_quantile),
-            0.0,
-        )
-        upper_bound = np.expm1(test_raw_pred + residual_log_quantile)
+    test_pred_price = np.maximum(np.expm1(test_raw_pred), 0.0)
+    lower_bound = np.maximum(np.expm1(test_raw_pred - residual_log_quantile), 0.0)
+    upper_bound = np.expm1(test_raw_pred + residual_log_quantile)
 
     champion_test_metrics = regression_metrics(test_actual, test_pred_price)
     int_metrics = interval_metrics(

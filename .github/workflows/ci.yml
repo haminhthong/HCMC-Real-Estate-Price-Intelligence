@@ -35,3 +35,48 @@ jobs:
         run: python -m pytest -q -p no:cacheprovider
       - name: Validate stored evaluation report
         run: python -B -m src.evaluate
+
+  docker-smoke:
+    needs: quality
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build API image
+        run: docker build -t hcmc-real-estate:test .
+      - name: Start API
+        run: docker run -d --name hcmc-real-estate-api -p 8000:8000 hcmc-real-estate:test
+      - name: Wait for model readiness
+        run: |
+          for i in {1..30}; do
+            if curl --fail --max-time 5 http://127.0.0.1:8000/health; then
+              exit 0
+            fi
+            sleep 2
+          done
+          exit 1
+      - name: Verify prediction response
+        run: |
+          curl --fail --max-time 30 http://127.0.0.1:8000/predict \
+            -H 'Content-Type: application/json' \
+            -d '{"Property Type":"Nhà riêng","location_area":"Quận 1","Area":75,"Bedrooms":3,"as_of_date":"2026-09-10"}' \
+            -o /tmp/prediction.json
+          python - <<'PY'
+          import json
+          import math
+          with open('/tmp/prediction.json') as file:
+              result = json.load(file)
+          interval = result['prediction_interval']
+          assert math.isfinite(result['predicted_price_million'])
+          assert 0 <= interval['lower_million'] <= result['predicted_price_million'] <= interval['upper_million']
+          assert 0 < interval['coverage'] < 1
+          assert result['comparables']
+          assert isinstance(result['warnings'], list)
+          PY
+      - name: Show logs and clean up
+        if: always()
+        run: |
+          if docker container inspect hcmc-real-estate-api >/dev/null 2>&1; then
+            docker logs hcmc-real-estate-api
+            docker rm -f hcmc-real-estate-api
+          fi

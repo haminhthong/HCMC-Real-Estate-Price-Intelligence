@@ -2,11 +2,7 @@
 
 from sklearn.compose import ColumnTransformer
 from sklearn.dummy import DummyRegressor
-from sklearn.ensemble import (
-    ExtraTreesRegressor,
-    HistGradientBoostingRegressor,
-    RandomForestRegressor,
-)
+from sklearn.ensemble import ExtraTreesRegressor
 from sklearn.impute import SimpleImputer
 from sklearn.linear_model import Ridge
 from sklearn.pipeline import Pipeline
@@ -25,8 +21,7 @@ def build_pipeline(model_name: str = "extra_trees") -> Pipeline:
     """Xây dựng pipeline xử lý đặc trưng và thuật toán dự báo theo cấu hình.
 
     Args:
-        model_name: Tên thuật toán ('naive_median', 'ridge_linear', 'random_forest',
-            'hist_gradient_boosting', 'extra_trees').
+        model_name: Một trong naive_median, ridge_linear hoặc extra_trees.
 
     Returns:
         Pipeline scikit-learn chưa được fit.
@@ -79,16 +74,6 @@ def build_pipeline(model_name: str = "extra_trees") -> Pipeline:
     regressors = {
         "naive_median": DummyRegressor(strategy="median"),
         "ridge_linear": Ridge(alpha=10.0, random_state=RANDOM_STATE),
-        "random_forest": RandomForestRegressor(
-            n_estimators=200,
-            min_samples_leaf=1,
-            n_jobs=1,
-            random_state=RANDOM_STATE,
-        ),
-        "hist_gradient_boosting": HistGradientBoostingRegressor(
-            max_iter=200,
-            random_state=RANDOM_STATE,
-        ),
         "extra_trees": ExtraTreesRegressor(
             n_estimators=300,
             min_samples_leaf=5,

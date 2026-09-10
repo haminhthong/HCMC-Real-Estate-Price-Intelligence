@@ -3,14 +3,14 @@
   "model_version": "1.2.0",
   "rows_raw": 2500,
   "rows_valid": 727,
-  "rows_clean": 723,
-  "unique_property_groups": 621,
-  "multi_listing_groups_count": 58,
-  "largest_group_size": 9,
+  "rows_clean": 727,
+  "unique_property_groups": 727,
+  "multi_listing_groups_count": 0,
+  "largest_group_size": 1,
   "rows_removed_by_reason": {
     "unsupported_property_type": 1587,
     "numeric_or_price_outliers": 186,
-    "exact_duplicate_listings": 4
+    "exact_duplicate_listings": 0
   },
   "missing_rate_by_column": {
     "Title": 0.0,
@@ -20,18 +20,18 @@
     "Listing ID": 0.0,
     "Last Updated": 0.0,
     "Property Type": 0.0,
-    "Width": 53.11,
-    "Length": 64.59,
-    "Bedrooms": 21.02,
-    "Bathrooms": 48.69,
-    "Floors": 62.79,
-    "Position": 52.42,
-    "Direction": 76.63,
-    "Alley Width": 82.3,
-    "Road Type": 84.37,
-    "Description": 2.49,
-    "Latitude": 72.89,
-    "Longitude": 72.89,
+    "Width": 53.23,
+    "Length": 64.79,
+    "Bedrooms": 21.32,
+    "Bathrooms": 48.83,
+    "Floors": 63.0,
+    "Position": 52.54,
+    "Direction": 76.75,
+    "Alley Width": 82.39,
+    "Road Type": 84.46,
+    "Description": 2.61,
+    "Latitude": 72.9,
+    "Longitude": 72.9,
     "Province": 0.0,
     "Property Type Slug": 0.0,
     "Scraped At": 0.0,
@@ -53,20 +53,20 @@
     "p25": 3650.0,
     "p50": 5990.0,
     "p75": 11200.0,
-    "p90": 22740.0
+    "p90": 22880.0
   },
   "area_percentiles": {
     "p10": 50.0,
     "p25": 60.0,
     "p50": 75.0,
     "p75": 100.0,
-    "p90": 149.4
+    "p90": 148.2
   },
   "date_min": "2025-05-03T21:29:00+00:00",
   "date_max": "2025-09-30T18:27:00+00:00",
-  "reference_date_final": "2025-09-29T20:37:00+00:00",
+  "reference_date_final": "2025-09-29T18:38:00+00:00",
   "split_protocol": "group_isolated_temporal_split_60_15_10_15_by_latest_property_date",
-  "known_date_rows": 723,
+  "known_date_rows": 727,
   "unknown_date_rows": 0,
   "district_coverage": [
     "Huyện Bình Chánh",
@@ -96,30 +96,30 @@
     "raw_listings": 2500,
     "market_scope_valid": 727,
     "identity_resolved": 727,
-    "duplicate_listing_events_removed": 4,
-    "clean_listing_events": 723,
-    "temporal_eligible": 723
+    "duplicate_listing_events_removed": 0,
+    "clean_listing_events": 727,
+    "temporal_eligible": 727
   },
   "target": "Price (triệu VND, giá đăng rao)",
   "comparable_validation_benchmark": {
-    "evaluation_samples": 93,
+    "evaluation_samples": 109,
     "comparable_metrics": {
-      "mae_million": 3453.06,
-      "median_ae_million": 1800.0,
-      "wape_percent": 44.97
+      "mae_million": 4511.83,
+      "median_ae_million": 2750.0,
+      "wape_percent": 55.49
     },
     "naive_baseline_metrics": {
-      "mae_million": 3739.14,
-      "median_ae_million": 2150.0,
-      "wape_percent": 48.69
+      "mae_million": 4290.87,
+      "median_ae_million": 2225.0,
+      "wape_percent": 52.77
     },
     "segment_baseline_metrics": {
-      "mae_million": 3900.85,
-      "median_ae_million": 1969.81,
-      "wape_percent": 50.8
+      "mae_million": 4085.78,
+      "median_ae_million": 2327.96,
+      "wape_percent": 50.25
     },
-    "improvement_over_naive_percent": 7.65,
-    "summary": "Comparable Median đạt Val MAE=3,453.1M (WAPE=44.97%), so với Naive MAE=3,739.1M và Segment MAE=3,900.8M."
+    "improvement_over_naive_percent": -5.15,
+    "summary": "Comparable Median đạt Val MAE=4,511.8M (WAPE=55.49%), so với Naive MAE=4,290.9M và Segment MAE=4,085.8M."
   },
   "model_type": "extra_trees",
   "target_formulation": "total_price",
@@ -127,30 +127,53 @@
     "Căn hộ chung cư",
     "Nhà riêng"
   ],
+  "supported_areas": [
+    "Huyện Bình Chánh",
+    "Huyện Hóc Môn",
+    "Huyện Nhà Bè",
+    "Quận 1",
+    "Quận 10",
+    "Quận 11",
+    "Quận 12",
+    "Quận 3",
+    "Quận 4",
+    "Quận 5",
+    "Quận 6",
+    "Quận 7",
+    "Quận 8",
+    "Quận Bình Thạnh",
+    "Quận Bình Tân",
+    "Quận Gò Vấp",
+    "Quận Phú Nhuận",
+    "Quận Tân Bình",
+    "Quận Tân Phú",
+    "TP. Thủ Đức",
+    "Unknown"
+  ],
   "split_summary": {
     "protocol": "group_isolated_temporal_split_60_15_10_15_by_latest_property_date",
-    "train_groups_count": 372,
-    "validation_groups_count": 93,
-    "calibration_groups_count": 62,
-    "test_groups_count": 94,
-    "train_rows": 443,
-    "validation_rows": 93,
-    "calibration_rows": 86,
-    "test_rows": 101,
+    "train_groups_count": 436,
+    "validation_groups_count": 109,
+    "calibration_groups_count": 72,
+    "test_groups_count": 110,
+    "train_rows": 436,
+    "validation_rows": 109,
+    "calibration_rows": 72,
+    "test_rows": 110,
     "train_date_range": [
       "2025-05-03T21:29:00+00:00",
-      "2025-09-26T18:47:00+00:00"
+      "2025-09-24T18:50:00+00:00"
     ],
     "validation_date_range": [
-      "2025-09-26T18:47:00+00:00",
-      "2025-09-29T20:37:00+00:00"
+      "2025-09-24T18:51:00+00:00",
+      "2025-09-29T18:38:00+00:00"
     ],
     "calibration_date_range": [
-      "2025-08-01T21:24:00+00:00",
-      "2025-09-30T12:35:00+00:00"
+      "2025-09-29T18:38:00+00:00",
+      "2025-09-30T10:36:00+00:00"
     ],
     "test_date_range": [
-      "2025-08-01T21:22:00+00:00",
+      "2025-09-30T10:36:00+00:00",
       "2025-09-30T18:27:00+00:00"
     ]
   },
@@ -207,44 +230,42 @@
   "segment_unit_prices": {
     "Căn hộ chung cư | Huyện Bình Chánh": 43.160518444666,
     "Căn hộ chung cư | Huyện Hóc Môn": 20.357142857142858,
-    "Căn hộ chung cư | Huyện Nhà Bè": 43.66666666666667,
+    "Căn hộ chung cư | Huyện Nhà Bè": 52.22222222222222,
     "Căn hộ chung cư | Quận 1": 220.02263791254617,
-    "Căn hộ chung cư | Quận 10": 70.92555331991952,
+    "Căn hộ chung cư | Quận 10": 72.72727272727273,
     "Căn hộ chung cư | Quận 11": 60.0,
     "Căn hộ chung cư | Quận 12": 41.769230769230774,
     "Căn hộ chung cư | Quận 3": 117.32423795476893,
-    "Căn hộ chung cư | Quận 4": 80.2439024390244,
+    "Căn hộ chung cư | Quận 4": 78.23670531787286,
     "Căn hộ chung cư | Quận 5": 62.89285714285714,
     "Căn hộ chung cư | Quận 6": 47.866300366300365,
-    "Căn hộ chung cư | Quận 7": 75.88028169014085,
+    "Căn hộ chung cư | Quận 7": 74.66216216216216,
     "Căn hộ chung cư | Quận 8": 46.20253164556962,
     "Căn hộ chung cư | Quận Bình Thạnh": 86.1280487804878,
-    "Căn hộ chung cư | Quận Bình Tân": 61.339475549255845,
+    "Căn hộ chung cư | Quận Bình Tân": 58.8235294117647,
     "Căn hộ chung cư | Quận Gò Vấp": 48.666666666666664,
     "Căn hộ chung cư | Quận Phú Nhuận": 77.33333333333333,
     "Căn hộ chung cư | Quận Tân Bình": 56.0,
-    "Căn hộ chung cư | Quận Tân Phú": 55.127931769722814,
-    "Căn hộ chung cư | TP. Thủ Đức": 53.91304347826087,
+    "Căn hộ chung cư | Quận Tân Phú": 59.23507462686567,
+    "Căn hộ chung cư | TP. Thủ Đức": 54.95169082125604,
     "Căn hộ chung cư | Unknown": 39.46564885496183,
     "Nhà riêng | Huyện Bình Chánh": 16.0,
     "Nhà riêng | Huyện Hóc Môn": 60.92484889953244,
     "Nhà riêng | Huyện Nhà Bè": 57.69230769230769,
     "Nhà riêng | Quận 1": 223.33333333333334,
-    "Nhà riêng | Quận 11": 192.30769230769232,
+    "Nhà riêng | Quận 11": 378.3783783783784,
     "Nhà riêng | Quận 12": 102.83018867924528,
     "Nhà riêng | Quận 3": 248.83720930232556,
-    "Nhà riêng | Quận 4": 120.0,
-    "Nhà riêng | Quận 6": 95.3125,
-    "Nhà riêng | Quận 7": 104.16666666666667,
+    "Nhà riêng | Quận 7": 99.47916666666667,
     "Nhà riêng | Quận 8": 147.61904761904762,
     "Nhà riêng | Quận Bình Thạnh": 186.33333333333334,
-    "Nhà riêng | Quận Bình Tân": 85.16666666666667,
+    "Nhà riêng | Quận Bình Tân": 81.66666666666667,
     "Nhà riêng | Quận Gò Vấp": 116.11111111111111,
     "Nhà riêng | Quận Phú Nhuận": 187.5,
     "Nhà riêng | Quận Tân Bình": 134.35846560846562,
     "Nhà riêng | Quận Tân Phú": 112.9713423831071,
     "Nhà riêng | TP. Thủ Đức": 88.28125,
-    "Nhà riêng | Unknown": 81.9047619047619
+    "Nhà riêng | Unknown": 76.78571428571429
   },
-  "comparable_reference_rows": 536
+  "comparable_reference_rows": 545
 }

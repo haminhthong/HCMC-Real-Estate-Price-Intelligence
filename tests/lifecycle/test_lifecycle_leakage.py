@@ -34,23 +34,39 @@ def test_same_property_never_crosses_splits():
     assert calib_groups.isdisjoint(test_groups), "Leakage giữa Calibration và Test!"
 
 
+def test_repeated_group_stays_together_even_with_old_listing():
+    """Ngày mới nhất quyết định tập; tin cũ của nhóm phải đi theo cùng nhóm."""
+    frame = pd.DataFrame(
+        {
+            "property_group_id": [f"g{i}" for i in range(20)] + ["g19"],
+            "listing_date": list(pd.date_range("2025-01-01", periods=20))
+            + [pd.Timestamp("2024-01-01")],
+        }
+    )
+    splits = split_group_indices(frame)
+    assert {19, 20}.issubset(set(splits[3]))
+    assert all(19 not in indices and 20 not in indices for indices in splits[:3])
+
+
 def test_repeated_property_listings_are_not_removed_as_duplicates():
     """Giữ lại các lần đăng lại theo thời gian của cùng một căn nhà.
 
     Chỉ loại bỏ tin đăng trùng lặp hoàn toàn (cùng property_group_id, listing_date, Price).
     """
-    raw = load_raw_dataset(DATA_PATH)
-    clean = clean_data(raw)
-    audit = getattr(clean, "attrs", {}).get("data_audit", {})
-
-    # Trong tập dữ liệu thực tế, số lượng clean listings phải lớn hơn unique_property_groups
-    unique_groups = clean["property_group_id"].nunique()
-    total_clean = len(clean)
-    assert total_clean > unique_groups, (
-        f"Lỗi logic: clean listings ({total_clean}) không được bằng unique groups ({unique_groups}). "
-        f"Multi-listing của cùng 1 property phải được giữ lại!"
-    )
-    assert audit.get("multi_listing_groups_count", 0) > 0
+    # Dữ liệu giả có địa chỉ đủ cụ thể; không giả định sample luôn có căn đăng lại.
+    base = {
+        "Location": "12 Nguyễn Huệ, Quận 1, TP.HCM",
+        "Property Type": "Nhà riêng",
+        "Area": 80,
+        "Price": 8000,
+        "Bedrooms": 3,
+        "Last Updated Date": "01/01/2025 10:00",
+    }
+    repeated = {**base, "Price": 8200, "Last Updated Date": "01/06/2025 10:00"}
+    clean = clean_data(pd.DataFrame([base, base, repeated]))
+    assert len(clean) == 2
+    assert clean["property_group_id"].nunique() == 1
+    assert clean["listing_event_id"].nunique() == 2
 
 
 def test_test_split_never_affects_model_selection():
@@ -66,7 +82,6 @@ def test_test_split_never_affects_model_selection():
     selection_result = select_champion_model(df_train, df_val)
 
     assert "selected_model_name" in selection_result
-    assert "selected_target_fmt" in selection_result
     assert "best_val_mae" in selection_result
 
     # Không hề chứa bất kỳ metric nào của Test trong quá trình selection
@@ -127,7 +142,6 @@ def test_champion_is_refit_before_calibration():
         df_train=df_train,
         df_val=df_val,
         selected_model_name=selection_result["selected_model_name"],
-        selected_target_fmt=selection_result["selected_target_fmt"],
     )
 
     champion_pipe = refit_result["champion_pipeline"]
@@ -142,7 +156,6 @@ def test_champion_is_refit_before_calibration():
         champion_pipe,
         calib_feats,
         df_calib,
-        target_formulation=selection_result["selected_target_fmt"],
     )
     assert calib_result["residual_log_quantile"] > 0
     assert calib_result["calibration_samples"] == len(calib_idx)

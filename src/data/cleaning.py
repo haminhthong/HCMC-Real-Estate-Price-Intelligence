@@ -56,6 +56,10 @@ def clean_data(raw: pd.DataFrame) -> pd.DataFrame:
     # 6. Chuẩn hóa ngày đăng tin
     df = parse_listing_dates(df)
 
+    # Bản sao toàn bộ nội dung là trùng dữ liệu, không phải bằng chứng cùng căn nhà.
+    # Giữ mặt nạ theo vị trí vì bước nhận diện bên dưới đặt lại chỉ số dòng.
+    exact_row_duplicates = df.duplicated().to_numpy()
+
     # 7. Định danh bất động sản đa tầng bằng Union-Find
     df, identity_audit = resolve_property_identities(df)
     rows_identity_resolved = int(df["property_group_id"].notna().sum())
@@ -84,9 +88,11 @@ def clean_data(raw: pd.DataFrame) -> pd.DataFrame:
     # 9. Khử trùng lặp ở cấp độ listing event. Các lần rao lại khác ngày/giá
     # vẫn được giữ để phản ánh diễn biến thị trường theo thời gian.
     rows_before_dedup = len(df)
-    df = df.drop_duplicates(
-        subset=["property_group_id", "listing_date", "Price"]
-    ).reset_index(drop=True)
+    df = (
+        df.loc[~exact_row_duplicates]
+        .drop_duplicates(subset=["property_group_id", "listing_date", "Price"])
+        .reset_index(drop=True)
+    )
     rows_clean = len(df)
     unique_properties = df["property_group_id"].nunique()
 

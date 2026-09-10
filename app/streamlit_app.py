@@ -1,15 +1,7 @@
 """Dashboard Streamlit cho dự báo giá và kiểm tra listing tương đồng."""
 
-import sys
-from pathlib import Path
-
 import pandas as pd
 import streamlit as st
-
-# Thêm thư mục gốc vào PYTHONPATH
-ROOT = Path(__file__).resolve().parents[1]
-if str(ROOT) not in sys.path:
-    sys.path.insert(0, str(ROOT))
 
 from src.artifacts.loader import load_model
 from src.config import CANONICAL_SPLIT_PROTOCOL, RESIDENTIAL_TYPES, SUPPORTED_AREAS

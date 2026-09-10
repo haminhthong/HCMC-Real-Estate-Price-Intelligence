@@ -40,7 +40,6 @@ def calibrate_conformal(
     model_pipeline: Pipeline,
     features_calib: pd.DataFrame,
     df_calib: pd.DataFrame,
-    target_formulation: str,
     target_coverage: float = 0.8,
 ) -> dict[str, Any]:
     """Thực hiện hiệu chuẩn Conformal Prediction Interval trên tập Calibration (10%).
@@ -52,10 +51,7 @@ def calibrate_conformal(
     """
     calib_raw_pred = model_pipeline.predict(features_calib)
 
-    if target_formulation == "price_per_m2":
-        calib_y_true = np.log1p(df_calib["Price"] / df_calib["Area"]).to_numpy()
-    else:
-        calib_y_true = np.log1p(df_calib["Price"]).to_numpy()
+    calib_y_true = np.log1p(df_calib["Price"].to_numpy())
 
     calibration_residuals = np.abs(calib_y_true - calib_raw_pred)
     residual_log_quantile = conformal_quantile(

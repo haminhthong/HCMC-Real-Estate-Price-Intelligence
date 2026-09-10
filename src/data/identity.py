@@ -1,10 +1,11 @@
 """Nhận diện các tin đăng có khả năng cùng nói về một bất động sản.
 
-Các cặp khớp mạnh hoặc trung bình có thể chung ``property_group_id``. Cặp khớp
-yếu chỉ được đánh dấu để kiểm tra, tránh gộp nhầm các căn nhà tương tự nhau.
+Chỉ cặp khớp mạnh được tự động gộp. Cặp khớp trung bình hoặc yếu
+chỉ được đánh dấu để kiểm tra, tránh gộp nhầm các căn nhà tương tự nhau.
 Mỗi lần đăng vẫn giữ ngày và giá riêng.
 """
 
+import re
 from typing import Any
 
 import numpy as np
@@ -185,6 +186,7 @@ def _match_level(left: pd.Series, right: pd.Series) -> str | None:
     # Khớp mạnh: cùng địa chỉ chuẩn hóa, loại hình và diện tích gần nhau.
     if (
         left_location == right_location
+        and re.search(r"^\d+[\w/.-]*\s+\D", left_location)
         and area_delta <= 0.03
         and structure_ok
         and (gps_distance is None or gps_distance <= 50.0)
@@ -215,7 +217,7 @@ def resolve_property_identities(
 ) -> tuple[pd.DataFrame, dict[str, Any]]:
     """Nhận diện bất động sản thận trọng và ghi nhận cặp khớp yếu để kiểm tra.
 
-    ``property_group_id`` là identity của property vật lý; ngày/giá vẫn được
+    ``property_group_id`` chỉ có ý nghĩa trong snapshot hiện tại; ngày/giá vẫn được
     giữ ở từng listing event và không bị gộp thành một quan sát duy nhất.
     """
     out = df.copy().reset_index(drop=True)
@@ -236,7 +238,7 @@ def resolve_property_identities(
 
     union_find = UnionFind(n)
     union_levels: dict[tuple[int, int], str] = {}
-    weak_pairs: set[tuple[int, int]] = set()
+    review_pairs: set[tuple[int, int]] = set()
 
     # Giới hạn cặp so sánh theo loại hình, khu vực và các khoảng diện tích kề nhau.
     blocks: dict[tuple[str, str, int], list[int]] = {}
@@ -282,8 +284,8 @@ def resolve_property_identities(
                 if level is None:
                     continue
                 level_counts[level] += 1
-                if level == "weak":
-                    weak_pairs.add(pair)
+                if level in {"medium", "weak"}:
+                    review_pairs.add(pair)
                     continue
                 if union_find.union(*pair):
                     union_levels[pair] = level
@@ -295,9 +297,10 @@ def resolve_property_identities(
     confidence_rank = {"singleton": 0, "weak": 1, "medium": 2, "strong": 3}
     root_to_id: dict[int, str] = {}
     root_confidence: dict[int, str] = {}
-    weak_rows = {index for pair in weak_pairs for index in pair}
+    review_rows = {index for pair in review_pairs for index in pair}
     for root, members in root_members.items():
-        root_to_id[root] = make_property_signature(out.iloc[[members[0]]]).iloc[0]
+        signature = make_property_signature(out.iloc[[members[0]]]).iloc[0]
+        root_to_id[root] = f"property_{signature}_{root:06d}"
         confidence = "strong" if len(members) > 1 else "singleton"
         for pair, level in union_levels.items():
             if (
@@ -313,11 +316,12 @@ def resolve_property_identities(
     ]
     out["identity_confidence"] = [
         "weak"
-        if index in weak_rows and root_confidence[union_find.find(index)] == "singleton"
+        if index in review_rows
+        and root_confidence[union_find.find(index)] == "singleton"
         else root_confidence[union_find.find(index)]
         for index in range(n)
     ]
-    out["possible_duplicate"] = [index in weak_rows for index in range(n)]
+    out["possible_duplicate"] = [index in review_rows for index in range(n)]
 
     group_sizes = [len(members) for members in root_members.values()]
     audit_base.update(
@@ -325,7 +329,7 @@ def resolve_property_identities(
             "unique_property_groups": len(root_members),
             "multi_listing_groups_count": sum(size > 1 for size in group_sizes),
             "largest_group_size": max(group_sizes, default=0),
-            "possible_duplicate_pairs": len(weak_pairs),
+            "possible_duplicate_pairs": len(review_pairs),
         }
     )
     return out, audit_base

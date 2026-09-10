@@ -86,7 +86,7 @@ def load_model(model_override_path: Path | str | None = None) -> dict[str, Any]:
         ),
         "feature_context": feature_context,
         "reference_date": feature_context.get("reference_date"),
-        "supported_areas": data_summary.get("district_coverage", []),
+        "supported_areas": data_summary["supported_areas"],
         "supported_property_types": data_summary.get("property_types", []),
         "training_ranges": data_summary.get("training_ranges", {}),
         "residual_log_quantile": calibration["residual_log_quantile"],

@@ -95,24 +95,12 @@ def predict_one(
             feature_frame.iloc[0].get("data_quality_score", 100.0),
         )
     )
-    target_formulation = model_package.get("target_formulation", "total_price")
-    area = float(area_value)
     raw_prediction = float(model_package["pipeline"].predict(feature_frame)[0])
-    if target_formulation == "price_per_m2":
-        predicted_price = max(float(np.expm1(raw_prediction) * area), 0.0)
-    else:
-        predicted_price = max(float(np.expm1(raw_prediction)), 0.0)
-
-    residual_quantile = float(model_package.get("residual_log_quantile", 0.25))
-    target_coverage = float(model_package.get("target_coverage", 0.8))
-    if target_formulation == "price_per_m2":
-        lower_bound = max(
-            float(np.expm1(raw_prediction - residual_quantile) * area), 0.0
-        )
-        upper_bound = float(np.expm1(raw_prediction + residual_quantile) * area)
-    else:
-        lower_bound = max(float(np.expm1(raw_prediction - residual_quantile)), 0.0)
-        upper_bound = float(np.expm1(raw_prediction + residual_quantile))
+    predicted_price = max(float(np.expm1(raw_prediction)), 0.0)
+    residual_quantile = float(model_package["residual_log_quantile"])
+    target_coverage = float(model_package["target_coverage"])
+    lower_bound = max(float(np.expm1(raw_prediction - residual_quantile)), 0.0)
+    upper_bound = float(np.expm1(raw_prediction + residual_quantile))
 
     warnings = build_prediction_warnings(
         feature_frame=feature_frame,

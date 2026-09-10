@@ -1,242 +1,252 @@
 {
   "by_property_type": {
     "Căn hộ chung cư": {
-      "count": 8,
-      "mean_mae_million": 3437.06,
-      "median_mae_million": 3547.28,
-      "wape_percent": 46.17,
-      "interval_coverage": 0.625,
-      "mean_interval_width_million": 9488.9,
-      "median_interval_width_million": 6799.53,
-      "median_relative_interval_width": 1.245
+      "count": 4,
+      "mean_mae_million": 2339.34,
+      "median_mae_million": 2119.72,
+      "wape_percent": 38.43,
+      "interval_coverage": 0.5,
+      "mean_interval_width_million": 7600.37,
+      "median_interval_width_million": 6206.9,
+      "median_relative_interval_width": 1.437
     },
     "Nhà riêng": {
-      "count": 93,
-      "mean_mae_million": 5075.46,
-      "median_mae_million": 2694.37,
-      "wape_percent": 44.98,
-      "interval_coverage": 0.7634,
-      "mean_interval_width_million": 11094.48,
-      "median_interval_width_million": 10819.67,
-      "median_relative_interval_width": 1.262
+      "count": 106,
+      "mean_mae_million": 5026.42,
+      "median_mae_million": 2478.68,
+      "wape_percent": 45.66,
+      "interval_coverage": 0.7358,
+      "mean_interval_width_million": 10596.51,
+      "median_interval_width_million": 9918.58,
+      "median_relative_interval_width": 1.241
     }
   },
   "by_location_area": {
     "Huyện Bình Chánh": {
       "count": 1,
-      "mean_mae_million": 2922.68,
-      "median_mae_million": 2922.68,
-      "wape_percent": 307.65,
+      "mean_mae_million": 2816.73,
+      "median_mae_million": 2816.73,
+      "wape_percent": 296.5,
       "interval_coverage": 0.0,
-      "mean_interval_width_million": 5745.35,
-      "median_interval_width_million": 5745.35,
-      "median_relative_interval_width": 6.048
+      "mean_interval_width_million": 5345.8,
+      "median_interval_width_million": 5345.8,
+      "median_relative_interval_width": 5.627
     },
     "Huyện Cần Giờ": {
       "count": 1,
-      "mean_mae_million": 2971.53,
-      "median_mae_million": 2971.53,
-      "wape_percent": 29.72,
+      "mean_mae_million": 2524.51,
+      "median_mae_million": 2524.51,
+      "wape_percent": 25.25,
       "interval_coverage": 1.0,
-      "mean_interval_width_million": 19240.53,
-      "median_interval_width_million": 19240.53,
-      "median_relative_interval_width": 1.924
+      "mean_interval_width_million": 17771.69,
+      "median_interval_width_million": 17771.69,
+      "median_relative_interval_width": 1.777
     },
     "Quận 1": {
       "count": 2,
-      "mean_mae_million": 4434.85,
-      "median_mae_million": 4434.85,
-      "wape_percent": 24.1,
+      "mean_mae_million": 4172.43,
+      "median_mae_million": 4172.43,
+      "wape_percent": 22.68,
       "interval_coverage": 1.0,
-      "mean_interval_width_million": 20714.24,
-      "median_interval_width_million": 20714.24,
-      "median_relative_interval_width": 1.139
+      "mean_interval_width_million": 20188.06,
+      "median_interval_width_million": 20188.06,
+      "median_relative_interval_width": 1.11
     },
     "Quận 10": {
-      "count": 6,
-      "mean_mae_million": 6166.81,
-      "median_mae_million": 5355.94,
-      "wape_percent": 50.9,
-      "interval_coverage": 0.3333,
-      "mean_interval_width_million": 8826.16,
-      "median_interval_width_million": 8389.15,
-      "median_relative_interval_width": 0.68
+      "count": 3,
+      "mean_mae_million": 8614.15,
+      "median_mae_million": 8968.44,
+      "wape_percent": 56.8,
+      "interval_coverage": 0.0,
+      "mean_interval_width_million": 9298.39,
+      "median_interval_width_million": 9410.55,
+      "median_relative_interval_width": 0.603
     },
     "Quận 6": {
       "count": 1,
-      "mean_mae_million": 6319.75,
-      "median_mae_million": 6319.75,
-      "wape_percent": 45.14,
-      "interval_coverage": 1.0,
-      "mean_interval_width_million": 11392.63,
-      "median_interval_width_million": 11392.63,
-      "median_relative_interval_width": 0.814
+      "mean_mae_million": 7117.66,
+      "median_mae_million": 7117.66,
+      "wape_percent": 50.84,
+      "interval_coverage": 0.0,
+      "mean_interval_width_million": 9766.36,
+      "median_interval_width_million": 9766.36,
+      "median_relative_interval_width": 0.698
     },
     "Quận 7": {
-      "count": 2,
-      "mean_mae_million": 3564.58,
-      "median_mae_million": 3564.58,
-      "wape_percent": 37.33,
+      "count": 1,
+      "mean_mae_million": 1422.71,
+      "median_mae_million": 1422.71,
+      "wape_percent": 12.82,
       "interval_coverage": 1.0,
-      "mean_interval_width_million": 17861.33,
-      "median_interval_width_million": 17861.33,
-      "median_relative_interval_width": 1.973
+      "mean_interval_width_million": 13731.94,
+      "median_interval_width_million": 13731.94,
+      "median_relative_interval_width": 1.237
+    },
+    "Quận Bình Thạnh": {
+      "count": 2,
+      "mean_mae_million": 6375.1,
+      "median_mae_million": 6375.1,
+      "wape_percent": 43.97,
+      "interval_coverage": 1.0,
+      "mean_interval_width_million": 14586.2,
+      "median_interval_width_million": 14586.2,
+      "median_relative_interval_width": 1.347
     },
     "Quận Bình Tân": {
-      "count": 7,
-      "mean_mae_million": 1672.81,
-      "median_mae_million": 970.74,
-      "wape_percent": 26.47,
-      "interval_coverage": 0.8571,
-      "mean_interval_width_million": 11816.23,
-      "median_interval_width_million": 10994.45,
-      "median_relative_interval_width": 1.735
+      "count": 8,
+      "mean_mae_million": 1434.68,
+      "median_mae_million": 739.94,
+      "wape_percent": 23.48,
+      "interval_coverage": 0.875,
+      "mean_interval_width_million": 10496.88,
+      "median_interval_width_million": 10225.06,
+      "median_relative_interval_width": 1.58
     },
     "Quận Gò Vấp": {
       "count": 1,
-      "mean_mae_million": 1970.22,
-      "median_mae_million": 1970.22,
-      "wape_percent": 24.66,
+      "mean_mae_million": 1644.35,
+      "median_mae_million": 1644.35,
+      "wape_percent": 20.58,
       "interval_coverage": 1.0,
-      "mean_interval_width_million": 14774.23,
-      "median_interval_width_million": 14774.23,
-      "median_relative_interval_width": 1.849
+      "mean_interval_width_million": 13671.02,
+      "median_interval_width_million": 13671.02,
+      "median_relative_interval_width": 1.711
     },
     "Quận Tân Phú": {
       "count": 4,
-      "mean_mae_million": 2176.23,
-      "median_mae_million": 1698.69,
-      "wape_percent": 21.08,
+      "mean_mae_million": 2238.08,
+      "median_mae_million": 1934.02,
+      "wape_percent": 21.68,
       "interval_coverage": 1.0,
-      "mean_interval_width_million": 12158.12,
-      "median_interval_width_million": 10819.58,
-      "median_relative_interval_width": 1.214
+      "mean_interval_width_million": 11547.99,
+      "median_interval_width_million": 10444.21,
+      "median_relative_interval_width": 1.139
     },
     "TP. Thủ Đức": {
       "count": 11,
-      "mean_mae_million": 4796.62,
-      "median_mae_million": 3345.39,
-      "wape_percent": 46.24,
-      "interval_coverage": 0.7273,
-      "mean_interval_width_million": 8902.33,
-      "median_interval_width_million": 8251.07,
-      "median_relative_interval_width": 0.906
+      "mean_mae_million": 4878.88,
+      "median_mae_million": 3191.4,
+      "wape_percent": 47.04,
+      "interval_coverage": 0.6364,
+      "mean_interval_width_million": 8368.61,
+      "median_interval_width_million": 7012.65,
+      "median_relative_interval_width": 0.831
     },
     "Unknown": {
-      "count": 65,
-      "mean_mae_million": 5525.43,
-      "median_mae_million": 2607.28,
-      "wape_percent": 48.02,
-      "interval_coverage": 0.7538,
-      "mean_interval_width_million": 10725.61,
-      "median_interval_width_million": 10819.67,
-      "median_relative_interval_width": 1.262
+      "count": 75,
+      "mean_mae_million": 5407.96,
+      "median_mae_million": 2461.14,
+      "wape_percent": 48.78,
+      "interval_coverage": 0.7333,
+      "mean_interval_width_million": 10315.73,
+      "median_interval_width_million": 9949.57,
+      "median_relative_interval_width": 1.288
     }
   },
   "by_price_range": {
     "< 5 tỷ": {
-      "count": 18,
-      "mean_mae_million": 1802.0,
-      "median_mae_million": 1628.79,
-      "wape_percent": 57.05,
-      "interval_coverage": 0.7778,
-      "mean_interval_width_million": 7201.2,
-      "median_interval_width_million": 7098.5,
-      "median_relative_interval_width": 2.243
+      "count": 23,
+      "mean_mae_million": 1749.98,
+      "median_mae_million": 1850.89,
+      "wape_percent": 52.42,
+      "interval_coverage": 0.8261,
+      "mean_interval_width_million": 7053.32,
+      "median_interval_width_million": 7056.89,
+      "median_relative_interval_width": 2.253
     },
     "5 - 10 tỷ": {
       "count": 47,
-      "mean_mae_million": 2073.26,
-      "median_mae_million": 1970.22,
-      "wape_percent": 27.72,
-      "interval_coverage": 0.9149,
-      "mean_interval_width_million": 10361.6,
-      "median_interval_width_million": 9862.56,
-      "median_relative_interval_width": 1.464
+      "mean_mae_million": 1945.2,
+      "median_mae_million": 1644.35,
+      "wape_percent": 26.87,
+      "interval_coverage": 0.8936,
+      "mean_interval_width_million": 10115.65,
+      "median_interval_width_million": 9818.14,
+      "median_relative_interval_width": 1.428
     },
     "10 - 15 tỷ": {
-      "count": 16,
-      "mean_mae_million": 4324.35,
-      "median_mae_million": 4633.4,
-      "wape_percent": 35.21,
-      "interval_coverage": 0.875,
-      "mean_interval_width_million": 11802.96,
-      "median_interval_width_million": 11441.26,
-      "median_relative_interval_width": 0.896
+      "count": 18,
+      "mean_mae_million": 4468.02,
+      "median_mae_million": 4751.31,
+      "wape_percent": 35.76,
+      "interval_coverage": 0.7778,
+      "mean_interval_width_million": 11389.63,
+      "median_interval_width_million": 11552.23,
+      "median_relative_interval_width": 0.86
     },
     "> 15 tỷ": {
-      "count": 20,
-      "mean_mae_million": 15022.28,
-      "median_mae_million": 12469.8,
-      "wape_percent": 59.59,
-      "interval_coverage": 0.25,
-      "mean_interval_width_million": 15111.66,
-      "median_interval_width_million": 13991.17,
-      "median_relative_interval_width": 0.616
+      "count": 22,
+      "mean_mae_million": 15002.71,
+      "median_mae_million": 12332.99,
+      "wape_percent": 60.1,
+      "interval_coverage": 0.2273,
+      "mean_interval_width_million": 14134.39,
+      "median_interval_width_million": 13212.47,
+      "median_relative_interval_width": 0.602
     }
   },
   "by_completeness_range": {
     "< 60% (Thiếu nhiều)": {
-      "count": 37,
-      "mean_mae_million": 6484.34,
-      "median_mae_million": 4171.88,
-      "wape_percent": 53.32,
-      "interval_coverage": 0.6486,
-      "mean_interval_width_million": 11001.96,
-      "median_interval_width_million": 11049.35,
-      "median_relative_interval_width": 1.064
+      "count": 38,
+      "mean_mae_million": 6547.87,
+      "median_mae_million": 3344.32,
+      "wape_percent": 55.12,
+      "interval_coverage": 0.6053,
+      "mean_interval_width_million": 10573.43,
+      "median_interval_width_million": 10649.37,
+      "median_relative_interval_width": 1.336
     },
     "60 - 80% (Khá)": {
-      "count": 48,
-      "mean_mae_million": 4789.75,
-      "median_mae_million": 2725.32,
-      "wape_percent": 42.67,
-      "interval_coverage": 0.7917,
-      "mean_interval_width_million": 11307.3,
-      "median_interval_width_million": 10274.54,
-      "median_relative_interval_width": 1.188
+      "count": 55,
+      "mean_mae_million": 4701.2,
+      "median_mae_million": 2461.14,
+      "wape_percent": 41.97,
+      "interval_coverage": 0.7636,
+      "mean_interval_width_million": 10769.34,
+      "median_interval_width_million": 9949.57,
+      "median_relative_interval_width": 1.164
     },
     ">= 80% (Đầy đủ)": {
-      "count": 15,
-      "mean_mae_million": 1784.2,
-      "median_mae_million": 1305.06,
-      "wape_percent": 22.42,
-      "interval_coverage": 0.9333,
-      "mean_interval_width_million": 10141.96,
-      "median_interval_width_million": 9776.55,
-      "median_relative_interval_width": 1.446
+      "count": 16,
+      "mean_mae_million": 1997.25,
+      "median_mae_million": 1570.83,
+      "wape_percent": 26.05,
+      "interval_coverage": 0.9375,
+      "mean_interval_width_million": 9636.37,
+      "median_interval_width_million": 9225.53,
+      "median_relative_interval_width": 1.406
     }
   },
   "by_cbd_distance_range": {
     "< 5 km (Trung tâm)": {
       "count": 1,
-      "mean_mae_million": 4311.19,
-      "median_mae_million": 4311.19,
-      "wape_percent": 45.38,
+      "mean_mae_million": 4576.83,
+      "median_mae_million": 4576.83,
+      "wape_percent": 48.18,
       "interval_coverage": 1.0,
-      "mean_interval_width_million": 7697.39,
-      "median_interval_width_million": 7697.39,
-      "median_relative_interval_width": 0.81
+      "mean_interval_width_million": 6986.61,
+      "median_interval_width_million": 6986.61,
+      "median_relative_interval_width": 0.735
     },
     "5 - 10 km (Cận trung tâm)": {
-      "count": 32,
-      "mean_mae_million": 6839.54,
-      "median_mae_million": 4455.55,
-      "wape_percent": 47.53,
-      "interval_coverage": 0.7188,
-      "mean_interval_width_million": 11461.99,
-      "median_interval_width_million": 10444.31,
-      "median_relative_interval_width": 0.891
+      "count": 34,
+      "mean_mae_million": 6838.81,
+      "median_mae_million": 4241.46,
+      "wape_percent": 48.18,
+      "interval_coverage": 0.6765,
+      "mean_interval_width_million": 10892.11,
+      "median_interval_width_million": 11013.89,
+      "median_relative_interval_width": 0.847
     },
     "> 10 km (Ngoại vi)": {
-      "count": 44,
-      "mean_mae_million": 3797.65,
-      "median_mae_million": 1699.76,
-      "wape_percent": 44.55,
-      "interval_coverage": 0.7955,
-      "mean_interval_width_million": 9983.1,
-      "median_interval_width_million": 9937.05,
-      "median_relative_interval_width": 1.544
+      "count": 53,
+      "mean_mae_million": 3703.87,
+      "median_mae_million": 1915.25,
+      "wape_percent": 44.26,
+      "interval_coverage": 0.7925,
+      "mean_interval_width_million": 9657.56,
+      "median_interval_width_million": 9618.94,
+      "median_relative_interval_width": 1.568
     }
   }
 }

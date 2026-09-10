@@ -25,12 +25,12 @@ Listing B: 80 m², Quận 7, 6.95 tỷ, 15/04/2025
 
 Hai dòng này không được xử lý bằng `drop_duplicates()` đơn giản. Project tách:
 
-- `property_group_id`: căn nhà vật lý sau khi resolve identity.
+- `property_group_id`: nhóm nhận diện trong snapshot hiện tại, không phải ID toàn cục bền vững.
 - `listing_event_id`: một lần rao cụ thể, giữ lại ngày và giá của lần rao đó.
 
 Identity resolution dùng địa chỉ/khu vực, loại hình, diện tích, kết cấu và GPS
-khi có. Match strong/medium có thể được gom vào cùng property group; match weak
-chỉ gắn cờ `possible_duplicate`, không tự động merge. Sau đó deduplicate ở cấp
+khi có. Chỉ strong match (địa chỉ có số nhà) hoặc cùng mã tin trong cùng nguồn được gộp;
+medium/weak match chỉ gắn cờ `possible_duplicate`, không tự động merge. Sau đó deduplicate ở cấp
 listing event để giữ lại các lần đăng lại hợp lệ.
 
 Phạm vi model hiện hành:
@@ -63,17 +63,23 @@ flowchart TD
     G --> G1[Train 60%]
     G --> G2[Validation 15%]
     G --> G3[Calibration 10%]
-    G --> G4[Locked future test 15%]
+    G --> G4[Final group-temporal test 15%]
     G1 --> H[Train-only FeatureContext]
-    G2 --> I[Naive / Segment / Ridge / ExtraTrees]
-    H --> I
-    I --> J[Select champion on Validation]
+    H --> I[Fit Median / Ridge / ExtraTrees on Train]
+    G2 --> J[Select model by Validation MAE]
+    I --> J
     J --> K[Refit Train + Validation]
+    G1 --> K
+    G2 --> K
     K --> L[Conformal calibration]
-    L --> M[Final future test evaluation]
+    G3 --> L
+    L --> M[Final group-temporal test evaluation]
+    G4 --> M
     K --> N[Point-in-time comparable context]
     M --> O[Metrics + data summary + error analysis]
     N --> P[Price estimate + interval + comparables]
+    K --> P
+    L --> P
     P --> Q[FastAPI / Streamlit]
 ```
 
@@ -99,9 +105,9 @@ phải strict row-level future holdout.
 | Tập | Tỷ lệ | Vai trò |
 | --- | ---: | --- |
 | Train | 60% | Fit context, baseline và candidate models |
-| Validation | 15% | Chọn model/target, không dùng Test |
+| Validation | 15% | Chọn model, không dùng Test |
 | Calibration | 10% | Tính residual quantile cho conformal interval |
-| Locked Future Test | 15% | Đánh giá generalization cuối cùng |
+| Final Group-Temporal Test | 15% | Đánh giá generalization cuối cùng |
 
 Model selection chạy theo đúng chuỗi:
 
@@ -116,7 +122,7 @@ Refit trên Train + Validation
   ↓
 Calibration riêng
   ↓
-Locked Future Test: report only
+Final Group-Temporal Test: report only
 ```
 
 Test không được dùng để chọn model hoặc tune hyperparameter.
@@ -130,10 +136,10 @@ refit. Feature pipeline dùng chung cho train và serving, gồm:
 - phân loại: loại hình, khu vực, hướng và vị trí;
 - text flags: nội thất, hẻm ô tô, gần chợ, gần trường, bán gấp;
 - missing indicators cho GPS, kích thước, phòng, tầng, loại đường và hẻm;
-- target log-space: `log1p(total_price)` hoặc `log1p(price_per_m2)`.
+- target log-space: `log1p(Price)` — tổng giá niêm yết, đơn vị triệu VND.
 
-Candidate models gồm baseline đơn giản, Ridge và ExtraTrees. Không thêm XGBoost,
-LightGBM, neural network hay AutoML chỉ để làm architecture trông lớn hơn.
+Ba ứng viên là Naive Median, Ridge và ExtraTrees. Segment Median chỉ là mốc
+so sánh bổ sung, không tham gia chọn pipeline. Chọn theo MAE trên Validation.
 
 ### Conformal interval
 
@@ -169,10 +175,10 @@ Funnel hiện hành được ghi trong [`reports/data_summary.json`](reports/dat
 flowchart LR
     A[Raw listings\n2,500] --> B[Market scope valid\n727]
     B --> C[Identity resolved\n727 listing events]
-    C --> D[Exact duplicate listing events removed\n4]
-    D --> E[Clean historical listings\n723]
-    E --> F[Temporal eligible\n723 known-date]
-    F --> G[Train 443 / Val 93 / Calib 86 / Test 101]
+    C --> D[Duplicate listing events removed\n0]
+    D --> E[Clean historical listings\n727]
+    E --> F[Temporal eligible\n727 known-date]
+    F --> G[Train 436 / Val 109 / Calib 72 / Test 110]
 ```
 
 Diễn giải funnel:
@@ -180,10 +186,14 @@ Diễn giải funnel:
 - 2.500 dòng raw được nạp từ `data/sample/data_public_sample.csv`;
 - 727 dòng nằm trong market scope sau schema, loại hình và numeric validation;
 - 727 listing events được gán `property_group_id` sau identity resolution;
-- 723 listing events còn lại sau exact dedup;
-- 621 property groups vật lý, trong đó 58 group có nhiều listing;
-- 4 exact duplicate listing events bị loại ở bước dedup;
-- 723 dòng có ngày và đủ điều kiện temporal benchmark.
+- 727 listing events còn lại sau dedup;
+- 727 nhóm nhận diện cục bộ; không cặp nào đủ bằng chứng để tự động gộp;
+- 0 listing events bị loại ở bước dedup với quy tắc hiện tại;
+- 727 dòng có ngày và đủ điều kiện temporal benchmark.
+
+Sample thiếu địa chỉ chi tiết nên số nhóm không phải số căn nhà thực tế đã xác
+minh. Các ca strong match, source ID, medium/weak và đăng lại được kiểm thử bằng
+dữ liệu giả có bằng chứng rõ ràng. Không suy ra chất lượng identity từ số nhóm.
 
 ## Data Card và metric hiện hành
 
@@ -196,29 +206,29 @@ Nguồn metric duy nhất là [`reports/metrics.json`](reports/metrics.json). Kh
 | Snapshot date | `2025-05-03` đến `2025-09-30` |
 | Raw listings | 2.500 |
 | Valid listings | 727 |
-| Clean listing events | 723 |
-| Unique property groups | 621 |
-| Known-date listings | 723 |
+| Clean listing events | 727 |
+| Unique property groups | 727 (snapshot-local) |
+| Known-date listings | 727 |
 | Unknown-date listings | 0 |
 | District coverage | 22 giá trị, gồm `Unknown` |
 | Canonical split | 60 / 15 / 10 / 15 |
 
-### Kết quả hiện hành trên Locked Future Test
+### Kết quả hiện hành trên Final Group-Temporal Test
 
 Artifact hiện tại chọn `extra_trees` với target `total_price`:
 
 | Metric | Giá trị |
 | --- | ---: |
-| Test samples | 101 |
-| Test MAE | 4.945,7 triệu VND |
-| Test WAPE | 45,04% |
-| Test R² | 0,082 |
-| Naive Median MAE | 6.323,4 triệu VND |
-| Segment Median MAE | 6.041,4 triệu VND |
+| Test samples | 110 |
+| Test MAE | 4.928,7 triệu VND |
+| Test WAPE | 45,52% |
+| Test R² | 0,081 |
+| Naive Median MAE | 6.332,0 triệu VND |
+| Segment Median MAE | 6.068,2 triệu VND |
 | Conformal target coverage | 80% |
-| Test interval coverage | 75,25% |
-| Mean interval width | 10.967,3 triệu VND |
-| Relative interval width | 99,88% |
+| Test interval coverage | 72,73% |
+| Mean interval width | 10.487,6 triệu VND |
+| Relative interval width | 96,85% |
 
 Các số liệu trên là báo cáo kết quả, không phải pass/fail release gate. Dataset
 mẫu nhỏ và heterogeneous nên khoảng dự báo rộng; đây là limitation cần nói rõ
@@ -229,37 +239,32 @@ khi trình bày project.
 Ví dụ dưới đây dùng input `Nhà riêng`, `Quận 1`, `75 m²`, 3 phòng ngủ tại ngày
 `2026-09-10`. Field `market_age_days` giúp người dùng thấy reference data đã cũ
 bao lâu; `warnings` vẫn là cảnh báo cụ thể, không gom thành reliability score.
+Response dưới đây rút gọn danh sách comparables còn một mục từ lần chạy hiện tại.
 
 ```json
 {
-  "predicted_price_million": 13440.3,
+  "predicted_price_million": 13338.1,
   "prediction_interval": {
-    "lower_million": 6765.1,
-    "upper_million": 26700.9,
+    "lower_million": 6890.8,
+    "upper_million": 25816.8,
     "coverage": 0.8
   },
   "comparables": [
     {
       "property_type": "Nhà riêng",
-      "location_area": "TP. Thủ Đức",
+      "location_area": "Unknown",
       "area": 75.0,
-      "price_million": 14000.0,
-      "unit_price_million_m2": 186.7,
-      "similarity_score": 0.82
-    },
-    {
-      "property_type": "Nhà riêng",
-      "location_area": "Quận Tân Bình",
-      "area": 75.0,
-      "price_million": 7700.0,
-      "unit_price_million_m2": 102.7,
-      "similarity_score": 0.81
+      "price_million": 5000.0,
+      "unit_price_million_m2": 66.7,
+      "similarity_score": 0.71
     }
   ],
   "warnings": [
+    "INPUT_OUTSIDE_TRAINING_RANGE: days_from_train_reference=345 nằm ngoài miền train [-149, 0].",
     "MISSING_GPS: Thiếu GPS nên comparable không dùng được khoảng cách địa lý.",
     "MISSING_INPUTS: Độ đầy đủ input chỉ đạt 10/100.",
-    "STALE_MARKET_REFERENCE: Dữ liệu train cũ hơn 345 ngày."
+    "STALE_MARKET_REFERENCE: Dữ liệu train cũ hơn 345 ngày.",
+    "WIDE_PREDICTION_INTERVAL: Khoảng dự báo rộng 142%."
   ],
   "as_of_date": "2026-09-10",
   "market_reference_date": "2025-09-29",
@@ -384,9 +389,12 @@ pointer.
 
 ### Chạy API và Streamlit
 
+Chạy từ thư mục gốc repo. Dùng `python -m streamlit` để Python nhận package local,
+không sửa `sys.path` trong mã ứng dụng.
+
 ```powershell
 uvicorn api.main:app --reload --port 8000
-streamlit run app/streamlit_app.py
+python -m streamlit run app/streamlit_app.py
 ```
 
 - API docs: <http://127.0.0.1:8000/docs>
@@ -422,7 +430,12 @@ Workflow [`ci.yml`](.github/workflows/ci.yml) chạy trên push, pull request v�
 3. Ruff lint;
 4. Ruff format check;
 5. toàn bộ pytest;
-6. đọc và kiểm tra `reports/metrics.json` bằng `src.evaluate`.
+6. đọc và kiểm tra `reports/metrics.json` bằng `src.evaluate`;
+7. job `docker-smoke` build image, nạp artifact, đợi `/health` và gọi `/predict`.
+
+Docker chỉ cài runtime từ `requirements.txt`. Test, Ruff và giao diện local nằm
+trong `requirements-dev.txt`. `/health` trả 503 nếu không nạp được mô hình/context;
+sau lần nạp đầu tiên, endpoint kiểm tra package đang được cache trong tiến trình.
 
 CI không train lại, không promote model và không deploy. Vì artifact flat hiện
 đang được lưu trong repo, bước test có thể chạy trực tiếp sau checkout.
@@ -430,10 +443,12 @@ CI không train lại, không promote model và không deploy. Vì artifact flat
 ## Giới hạn cần nói rõ
 
 - Dữ liệu là asking price từ listing, không phải transaction price.
-- Dataset mẫu chỉ có 723 listing events và 621 property groups sau lọc.
+- Dataset mẫu chỉ có 727 listing events và 727 nhóm snapshot-local sau lọc.
 - Thị trường heterogeneous nên Test R² thấp và conformal interval rộng.
 - Comparable weights là heuristic thủ công; chưa phải appraisal coefficients.
-- Identity resolution bảo thủ: weak match chỉ cảnh báo, có thể bỏ sót một số merge.
+- Identity resolution bảo thủ: medium/weak match chỉ cảnh báo, có thể bỏ sót một số merge.
+- Strong matching vẫn dùng Union-Find nên có thể gộp bắc cầu; đây là heuristic,
+  chưa được đo precision/recall trên dữ liệu identity có nhãn.
 - Kết quả chỉ có ý nghĩa trong market scope và miền dữ liệu đã train.
 
 ## Tệp tham chiếu quan trọng

@@ -112,7 +112,7 @@ def save_model_artifacts(
     metrics = {
         "model_version": model_version,
         "model_type": selection_result["selected_model_name"],
-        "target_formulation": selection_result["selected_target_fmt"],
+        "target_formulation": "total_price",
         "split_protocol": data_summary["split_protocol"],
         "train_rows": split_summary.get("train_rows", 0),
         "validation_rows": split_summary.get("validation_rows", 0),
@@ -130,7 +130,7 @@ def save_model_artifacts(
         {
             "model_version": model_version,
             "model_type": selection_result["selected_model_name"],
-            "target_formulation": selection_result["selected_target_fmt"],
+            "target_formulation": "total_price",
             "training_ranges": training_ranges,
             "segment_unit_prices": {
                 f"{key[0]} | {key[1]}": float(value)

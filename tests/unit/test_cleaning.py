@@ -11,7 +11,7 @@ def test_clean_data_drops_exact_duplicates_only():
         "Price": 5000.0,
         "Area": 60.0,
         "Property Type": "Nhà riêng",
-        "Location": "Quận 1, TP.HCM",
+        "Location": "12 Nguyễn Huệ, Quận 1, TP.HCM",
         "Bedrooms": 2,
         "Bathrooms": 2,
         "Width": 4.0,

@@ -2,6 +2,7 @@
 
 import numpy as np
 import pytest
+
 from src.calibration.conformal import conformal_quantile
 
 

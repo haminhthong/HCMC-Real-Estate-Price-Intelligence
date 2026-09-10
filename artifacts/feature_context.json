@@ -1,0 +1,43 @@
+{
+  "reference_date": "2025-09-29T20:37:00+00:00",
+  "cbd_latitude": 10.7769,
+  "cbd_longitude": 106.7009,
+  "feature_schema_version": 3,
+  "numeric_features": [
+    "Area",
+    "Bedrooms",
+    "Bathrooms",
+    "Floors",
+    "Width",
+    "Length",
+    "Alley Width",
+    "Latitude",
+    "Longitude",
+    "distance_to_cbd_km",
+    "days_from_train_reference",
+    "input_completeness_score"
+  ],
+  "categorical_features": [
+    "Property Type",
+    "location_area",
+    "Direction",
+    "Position"
+  ],
+  "flag_features": [
+    "has_furniture",
+    "car_alley",
+    "near_market",
+    "near_school",
+    "is_urgent_sale"
+  ],
+  "missing_indicator_features": [
+    "gps_missing",
+    "width_missing",
+    "length_missing",
+    "bedrooms_missing",
+    "bathrooms_missing",
+    "floors_missing",
+    "road_type_missing",
+    "alley_width_missing"
+  ]
+}

@@ -1,4 +1,4 @@
-"""Mô-đun Phase A: Tuyển chọn mô hình Champion trên tập Validation (Model Selection)."""
+"""Chọn model và target formulation bằng tập Validation."""
 
 from typing import Any
 
@@ -20,12 +20,9 @@ def select_champion_model(
     df_train: pd.DataFrame,
     df_val: pd.DataFrame,
 ) -> dict[str, Any]:
-    """Huấn luyện các candidate models trên tập Train (60%) và chọn lọc trên tập Validation (15%).
+    """Huấn luyện ứng viên trên Train (60%) và chọn model trên Validation (15%).
 
-    NGUYÊN TẮC:
-    1. Chỉ sử dụng mốc thời gian `reference_date_selection` từ tập Train để chống data leakage.
-    2. Đánh giá đa chiều trên tập Validation (MAE, WAPE, Median AE, RMSE, R²).
-    3. Chọn mô hình Champion và Target formulation tốt nhất mà KHÔNG đụng tới tập Test.
+    Chỉ dùng context fit từ Train và không đọc Test trong bước này.
     """
     logger.info("--- BẮT ĐẦU PHASE A: MODEL SELECTION TRÊN TẬP VALIDATION ---")
 
@@ -105,7 +102,7 @@ def select_champion_model(
         "selected_target_fmt": selected_target_fmt,
         "best_val_mae": best_val_mae,
         "naive_val_mae": naive_val_mae,
-        # Gate đọc trực tiếp object này; không được dùng fallback số cứng.
+        # Báo cáo giữ nguyên metric Validation đã dùng để chọn champion.
         "selected_validation_metrics": selected_validation_metrics,
         "best_candidate_metrics": selected_validation_metrics,
         "validation_benchmarks": validation_benchmarks,

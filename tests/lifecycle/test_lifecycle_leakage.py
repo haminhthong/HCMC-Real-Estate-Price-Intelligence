@@ -1,4 +1,4 @@
-"""Bộ kiểm thử 5 nguyên tắc Lifecycle & Chống rò rỉ dữ liệu (Anti-Leakage) cốt lõi."""
+"""Kiểm thử các nguyên tắc chống rò rỉ dữ liệu cốt lõi."""
 
 import pandas as pd
 
@@ -14,7 +14,7 @@ from src.modeling.trainer import refit_champion_model
 
 
 def test_same_property_never_crosses_splits():
-    """1. NGUYÊN TẮC: Cùng một bất động sản tuyệt đối không bao giờ xuất hiện ở 2 tập split khác nhau."""
+    """Cùng một bất động sản không xuất hiện ở hai tập split."""
     raw = load_raw_dataset(DATA_PATH)
     clean = clean_data(raw)
     train_idx, val_idx, calib_idx, test_idx = split_group_indices(clean)
@@ -35,7 +35,7 @@ def test_same_property_never_crosses_splits():
 
 
 def test_repeated_property_listings_are_not_removed_as_duplicates():
-    """2. NGUYÊN TẮC: Các tin đăng lặp lại theo thời gian của cùng một căn nhà KHÔNG bị drop làm mất nhóm.
+    """Giữ lại các lần đăng lại theo thời gian của cùng một căn nhà.
 
     Chỉ loại bỏ tin đăng trùng lặp hoàn toàn (cùng property_group_id, listing_date, Price).
     """
@@ -54,7 +54,7 @@ def test_repeated_property_listings_are_not_removed_as_duplicates():
 
 
 def test_test_split_never_affects_model_selection():
-    """3. NGUYÊN TẮC: Việc lựa chọn Champion model chỉ dựa vào Validation, Test set hoàn toàn cô lập."""
+    """Việc chọn champion chỉ dựa vào Train và Validation."""
     raw = load_raw_dataset(DATA_PATH)
     clean = clean_data(raw)
     train_idx, val_idx, _, _ = split_group_indices(clean)
@@ -74,7 +74,7 @@ def test_test_split_never_affects_model_selection():
 
 
 def test_training_and_serving_feature_vectors_match():
-    """4. NGUYÊN TẮC: Vector đặc trưng khi huấn luyện và khi serving khớp nhau 100% (chống skew)."""
+    """Vector đặc trưng của training và serving phải khớp."""
     raw = load_raw_dataset(DATA_PATH)
     clean = clean_data(raw)
     ctx = FeatureContext.fit(clean)
@@ -110,7 +110,7 @@ def test_training_and_serving_feature_vectors_match():
 
 
 def test_champion_is_refit_before_calibration():
-    """5. NGUYÊN TẮC: Champion model phải được refit trên Train+Val (75%) trước khi đưa vào Calibration."""
+    """Refit champion trước khi tính calibration."""
     raw = load_raw_dataset(DATA_PATH)
     clean = clean_data(raw)
     train_idx, val_idx, calib_idx, _ = split_group_indices(clean)

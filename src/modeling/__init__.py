@@ -4,8 +4,8 @@ Bao gồm:
 - pipelines: Xây dựng pipeline Scikit-learn
 - baselines: Naive Median và Segment Median
 - candidates: Danh sách cấu hình ứng viên
-- selector: Phase A - Lựa chọn Champion model trên Validation
-- trainer: Phase B - Refit duy nhất Champion model trên Train + Validation
+- selector: Chọn model trên Validation
+- trainer: Refit champion trên Train + Validation
 """
 
 from .baselines import NaiveMedianBaseline, SegmentMedianBaseline

@@ -1,18 +1,8 @@
-"""Mô-đun điều phối Master ML Lifecycle Pipeline cho HCMC Real Estate Price Intelligence.
+"""Pipeline train và đánh giá giá niêm yết bất động sản TP.HCM.
 
-Quy trình chuẩn hóa 12 bước:
-1. DATA INGESTION: Nạp dữ liệu thô
-2. DATA CLEANING & IDENTITY: Chuẩn hóa, lọc ngoại lệ, định danh bất động sản, deduplicate cấp độ tin đăng
-3. DATA MANIFEST: Khởi tạo DatasetManifest
-4. GROUPED TEMPORAL SPLIT: Phân chia 60/15/10/15 cô lập nhóm bất động sản theo ngày muộn nhất
-5. SPLIT MANIFEST: Khởi tạo SplitManifest
-6. PHASE A - MODEL SELECTION: Train (60%) -> Candidate models -> Validation (15%) -> Chọn Champion
-7. PHASE B - FINAL REFIT: Train + Validation (75%) -> Cập nhật reference_date_final -> Refit Champion
-8. UNCERTAINTY CALIBRATION: Calibration (10%) -> Tính phân vị residual conformal quantile
-9. INDEPENDENT EVALUATION: Test (15%) -> Đánh giá duy nhất Champion vs Naive & Segment Baselines
-10. PROMOTION GATE: Kiểm tra tiêu chuẩn triển khai sẵn sàng thực tế
-11. DATA CARD & AUDIT: Tổng hợp thẻ dữ liệu
-12. ARTIFACT PERSISTENCE: Lưu trữ versioned folder, decoupled reference dataset, và cập nhật production pointer
+Luồng duy nhất: làm sạch và resolve identity → split theo thời gian và property
+group → chọn Baseline/Ridge/ExtraTrees → refit → conformal calibration → future
+test → ghi model, báo cáo và comparables.
 """
 
 import argparse
@@ -20,16 +10,11 @@ from pathlib import Path
 from typing import Any
 
 from src.artifacts.loader import clear_model_cache
-from src.artifacts.schema import (
-    evaluate_development_gate,
-    evaluate_release_gate,
-)
 from src.artifacts.writer import save_model_artifacts
 from src.calibration.conformal import calibrate_conformal
 from src.config import CANONICAL_SPLIT_PROTOCOL, DATA_PATH, MODEL_VERSION, logger
 from src.data.cleaning import clean_data
 from src.data.loader import load_raw_dataset
-from src.data.manifest import create_dataset_manifest, create_split_manifest
 from src.data.split import split_group_indices
 from src.evaluation.evaluator import evaluate_champion_on_test
 from src.evaluation.report import format_evaluation_summary
@@ -42,16 +27,8 @@ def run_pipeline(
     data_path: Path | str = DATA_PATH,
     model_version: str = MODEL_VERSION,
 ) -> dict[str, Any]:
-    """Chạy toàn bộ quy trình Master ML Lifecycle từ dữ liệu thô đến khi lưu trữ artifacts."""
-    logger.info(
-        "=========================================================================="
-    )
-    logger.info(
-        "   BẮT ĐẦU MASTER ML LIFECYCLE PIPELINE (HCMC REAL ESTATE INTELLIGENCE)  "
-    )
-    logger.info(
-        "=========================================================================="
-    )
+    """Chạy pipeline từ dữ liệu thô đến model, báo cáo và artifact hiện hành."""
+    logger.info("Bắt đầu pipeline giá bất động sản TP.HCM")
 
     # 1. DATA INGESTION
     raw_df = load_raw_dataset(data_path)
@@ -65,14 +42,7 @@ def run_pipeline(
             "Số lượng mẫu hợp lệ sau làm sạch quá nhỏ (< 50) để chia 4 tập."
         )
 
-    # 3. DATASET MANIFEST
-    dataset_manifest = create_dataset_manifest(
-        clean_df,
-        source_path=data_path,
-        snapshot_id=Path(data_path).stem,
-    )
-
-    # 4. CANONICAL GROUPED TEMPORAL SPLIT (60 / 15 / 10 / 15)
+    # 3. CANONICAL GROUPED TEMPORAL SPLIT (60 / 15 / 10 / 15)
     train_idx, val_idx, calib_idx, test_idx = split_group_indices(clean_df)
     logger.info(
         "Grouped Temporal Split hoàn tất: Train=%d, Validation=%d, Calibration=%d, Test=%d.",
@@ -82,27 +52,17 @@ def run_pipeline(
         len(test_idx),
     )
 
-    # 5. SPLIT MANIFEST
-    split_manifest = create_split_manifest(
-        clean_df,
-        train_idx=train_idx,
-        validation_idx=val_idx,
-        calibration_idx=calib_idx,
-        test_idx=test_idx,
-        protocol=CANONICAL_SPLIT_PROTOCOL,
-    )
-
     df_train = clean_df.iloc[train_idx].copy()
     df_val = clean_df.iloc[val_idx].copy()
     df_calib = clean_df.iloc[calib_idx].copy()
     df_test = clean_df.iloc[test_idx].copy()
 
-    # 6. PHASE A: MODEL & TARGET FORMULATION SELECTION (Train 60% -> Val 15%)
+    # 6. Chọn model và target trên Train -> Validation.
     selection_result = select_champion_model(df_train=df_train, df_val=df_val)
     selected_model_name = selection_result["selected_model_name"]
     selected_target_fmt = selection_result["selected_target_fmt"]
 
-    # 7. PHASE B: FINAL REFIT CHAMPION MODEL (Train + Validation = 75%)
+    # 7. Refit champion trên Train + Validation.
     refit_result = refit_champion_model(
         df_train=df_train,
         df_val=df_val,
@@ -135,44 +95,8 @@ def run_pipeline(
         target_coverage=0.8,
     )
 
-    # 10. GOVERNANCE & PROMOTION GATES (Development Gate on Val, Release Gate on Test)
     champion_metrics = evaluation_result["champion_metrics"]
     int_metrics = evaluation_result["interval_metrics"]
-
-    # Development Gate chỉ được đọc metrics của champion trên Validation.
-    # Không dùng fallback số cứng vì nó có thể che giấu lỗi selection.
-    dev_gate = evaluate_development_gate(
-        champion_val_mae=selection_result["best_val_mae"],
-        naive_val_mae=selection_result["naive_val_mae"],
-        val_wape=float(selection_result["selected_validation_metrics"]["wape_percent"]),
-    )
-    rel_gate = evaluate_release_gate(
-        test_wape=float(champion_metrics["wape_percent"]),
-        test_coverage=float(int_metrics["actual_coverage"]),
-        relative_interval_width=float(int_metrics["relative_interval_width"]),
-    )
-    # Development và Release là hai quyết định độc lập.
-    # Test chỉ đi vào Release Gate, không bị truyền ngược thành Validation WAPE.
-    promotion_result = {
-        "selection_status": "champion"
-        if dev_gate["champion_approved"]
-        else "research_candidate",
-        "production_readiness": rel_gate["readiness_status"],
-        "deployment_approved": bool(rel_gate["production_ready"]),
-        "promotion_status": {
-            "model_selected": True,
-            "beats_baseline": dev_gate["beats_baseline"],
-            "baseline_improvement_percent": dev_gate["baseline_improvement_percent"],
-            "wape_acceptable": dev_gate["val_wape_acceptable"],
-            "interval_calibrated": rel_gate["interval_coverage_acceptable"],
-            "production_ready": rel_gate["production_ready"],
-        },
-        "development_gate": dev_gate,
-        "release_gate": rel_gate,
-        "promotion_reason": rel_gate["gate_reason"],
-    }
-    logger.info("%s", dev_gate["gate_reason"])
-    logger.info("%s", rel_gate["gate_reason"])
 
     # 11. COMPARABLE ENGINE CONTEXT & OFFLINE VALIDATION BENCHMARK
     from src.comparables import ComparableContext, evaluate_comparables_on_validation
@@ -198,8 +122,32 @@ def run_pipeline(
         "Comparable Engine Validation Benchmark: %s", comp_eval_result["summary"]
     )
 
-    # 12. DATA CARD & METADATA
-    data_card = {
+    # 12. DATA SUMMARY: mô tả dữ liệu, split và provenance của lần chạy.
+    def date_range(frame: Any) -> tuple[str, str]:
+        if frame["listing_date"].notna().any():
+            return (
+                frame["listing_date"].min().isoformat(),
+                frame["listing_date"].max().isoformat(),
+            )
+        return ("unknown", "unknown")
+
+    split_summary = {
+        "protocol": CANONICAL_SPLIT_PROTOCOL,
+        "train_groups_count": int(df_train["property_group_id"].nunique()),
+        "validation_groups_count": int(df_val["property_group_id"].nunique()),
+        "calibration_groups_count": int(df_calib["property_group_id"].nunique()),
+        "test_groups_count": int(df_test["property_group_id"].nunique()),
+        "train_rows": len(df_train),
+        "validation_rows": len(df_val),
+        "calibration_rows": len(df_calib),
+        "test_rows": len(df_test),
+        "train_date_range": date_range(df_train),
+        "validation_date_range": date_range(df_val),
+        "calibration_date_range": date_range(df_calib),
+        "test_date_range": date_range(df_test),
+    }
+    date_min, date_max = date_range(clean_df)
+    data_summary = {
         "source_file": Path(data_path).name,
         "model_version": model_version,
         "rows_raw": audit_stats.get("rows_raw", len(raw_df)),
@@ -223,10 +171,10 @@ def run_pipeline(
             f"p{p}": round(float(clean_df["Area"].quantile(p / 100)), 1)
             for p in [10, 25, 50, 75, 90]
         },
-        "date_min": dataset_manifest.date_min,
-        "date_max": dataset_manifest.date_max,
+        "date_min": date_min,
+        "date_max": date_max,
         "reference_date_final": final_feature_context.reference_date,
-        "split_protocol": split_manifest.protocol,
+        "split_protocol": CANONICAL_SPLIT_PROTOCOL,
         "known_date_rows": int(clean_df["listing_date"].notna().sum()),
         "unknown_date_rows": int(clean_df["listing_date"].isna().sum()),
         "district_coverage": sorted(
@@ -235,7 +183,12 @@ def run_pipeline(
         "data_quality_funnel": {
             "raw_listings": int(audit_stats.get("rows_raw", len(raw_df))),
             "market_scope_valid": int(audit_stats.get("rows_valid", len(clean_df))),
-            "identity_resolved": int(clean_df["property_group_id"].notna().sum()),
+            "identity_resolved": int(
+                audit_stats.get(
+                    "rows_identity_resolved",
+                    clean_df["property_group_id"].notna().sum(),
+                )
+            ),
             "duplicate_listing_events_removed": int(
                 audit_stats.get("rows_removed_by_reason", {}).get(
                     "exact_duplicate_listings", 0
@@ -245,28 +198,32 @@ def run_pipeline(
             "temporal_eligible": int(clean_df["listing_date"].notna().sum()),
         },
         "target": "Price (triệu VND, giá đăng rao)",
-        "development_gate": dev_gate,
-        "release_gate": rel_gate,
-        "promotion_status": promotion_result["promotion_status"],
-        "readiness_status": promotion_result["production_readiness"],
         "comparable_validation_benchmark": comp_eval_result,
     }
 
-    # 13. ARTIFACT PERSISTENCE
+    data_summary.update(
+        {
+            "model_version": model_version,
+            "model_type": selected_model_name,
+            "target_formulation": selected_target_fmt,
+            "property_types": sorted(
+                clean_df["Property Type"].dropna().unique().tolist()
+            ),
+            "split_summary": split_summary,
+        }
+    )
+
+    # 13. Ghi artifact phẳng và báo cáo hiện hành.
     artifact_paths = save_model_artifacts(
-        version=model_version,
+        model_version=model_version,
         pipeline=champion_pipeline,
         feature_context=final_feature_context,
         calibration_result=calibration_result,
-        dataset_manifest=dataset_manifest,
-        split_manifest=split_manifest,
         evaluation_result=evaluation_result,
         selection_result=selection_result,
-        promotion_result=promotion_result,
-        data_card=data_card,
+        data_summary=data_summary,
         reference_df=ref_df,
         training_ranges=refit_result["training_ranges"],
-        training_quantiles=refit_result["training_quantiles"],
         segment_unit_prices=refit_result["segment_unit_prices"],
         comparable_context=comparable_context,
     )
@@ -275,13 +232,7 @@ def run_pipeline(
     clear_model_cache()
 
     logger.info(
-        "=========================================================================="
-    )
-    logger.info(
-        "   PIPELINE HOÀN TẤT THÀNH CÔNG!                                         "
-    )
-    logger.info(
-        "=========================================================================="
+        "Pipeline hoàn tất: model=%s, test_rows=%d", selected_model_name, len(df_test)
     )
     summary_text = format_evaluation_summary(evaluation_result)
     try:
@@ -298,13 +249,12 @@ def run_pipeline(
         "target_formulation": selected_target_fmt,
         "champion_metrics": champion_metrics,
         "interval_metrics": int_metrics,
-        "promotion_result": promotion_result,
         "artifact_paths": {k: str(v) for k, v in artifact_paths.items()},
     }
 
 
 def main() -> None:
-    """CLI entrypoint cho master pipeline."""
+    """CLI entrypoint cho pipeline."""
     parser = argparse.ArgumentParser(
         description="HCMC Real Estate Price Intelligence ML Pipeline"
     )
@@ -321,17 +271,11 @@ def main() -> None:
         default=str(DATA_PATH),
         help="Đường dẫn file dữ liệu đầu vào",
     )
-    parser.add_argument(
-        "--version",
-        type=str,
-        default=MODEL_VERSION,
-        help="Phiên bản mô hình (ví dụ: 1.2.0)",
-    )
 
     args = parser.parse_args()
 
     if args.action == "train":
-        run_pipeline(data_path=args.data_path, model_version=args.version)
+        run_pipeline(data_path=args.data_path)
     elif args.action == "evaluate":
         from src.evaluate import main as eval_main
 

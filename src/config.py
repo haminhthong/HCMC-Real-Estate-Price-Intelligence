@@ -26,21 +26,24 @@ ROOT_DIR: Path = Path(__file__).resolve().parents[1]
 # Đường dẫn dữ liệu đầu vào
 DATA_PATH: Path = ROOT_DIR / "data" / "sample" / "data_public_sample.csv"
 
-# Đường dẫn lưu mô hình và báo cáo.
-# MODEL_PATH chỉ là đích ghi tương thích ngược khi release đạt production;
-# loader hiện hành luôn đọc bundle versioned qua models/production.json.
-MODEL_PATH: Path = ROOT_DIR / "models" / "price_model.joblib"
-METRICS_PATH: Path = ROOT_DIR / "artifacts" / "metrics.json"
-MODEL_COMPARISON_PATH: Path = ROOT_DIR / "artifacts" / "model_comparison.json"
-ERROR_ANALYSIS_PATH: Path = ROOT_DIR / "artifacts" / "error_analysis.json"
-DATA_CARD_PATH: Path = ROOT_DIR / "artifacts" / "data_card.json"
+# Artifact phẳng: một mô hình, một context, một calibration và một bảng tham chiếu.
+ARTIFACT_DIR: Path = ROOT_DIR / "artifacts"
+MODEL_PATH: Path = ARTIFACT_DIR / "model.joblib"
+FEATURE_CONTEXT_PATH: Path = ARTIFACT_DIR / "feature_context.json"
+CALIBRATION_PATH: Path = ARTIFACT_DIR / "calibration.json"
+COMPARABLES_PATH: Path = ARTIFACT_DIR / "comparables.csv"
 
-# Phiên bản mô hình, schema artifact và hạt giống ngẫu nhiên để tái lập kết quả
+# Báo cáo là nguồn sự thật duy nhất cho kết quả đánh giá và data summary.
+REPORT_DIR: Path = ROOT_DIR / "reports"
+METRICS_PATH: Path = REPORT_DIR / "metrics.json"
+DATA_SUMMARY_PATH: Path = REPORT_DIR / "data_summary.json"
+ERROR_ANALYSIS_PATH: Path = REPORT_DIR / "error_analysis.json"
+
+# Nhãn mô hình và hạt giống ngẫu nhiên để tái lập kết quả.
 MODEL_VERSION: str = "1.2.0"
-ARTIFACT_SCHEMA_VERSION: int = 3
 RANDOM_STATE: int = 42
 CANONICAL_SPLIT_PROTOCOL: str = (
-    "grouped_temporal_split_60_15_10_15_by_latest_group_listing_date"
+    "group_isolated_temporal_split_60_15_10_15_by_latest_property_date"
 )
 
 # ---------------------------------------------------------------------------

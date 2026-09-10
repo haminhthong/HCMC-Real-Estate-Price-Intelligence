@@ -1,11 +1,7 @@
-"""Mô-đun điều phối quy trình làm sạch dữ liệu, lọc phạm vi thị trường và khử trùng cấp độ tin đăng.
+"""Làm sạch listing, lọc market scope và deduplicate ở cấp listing event.
 
-Chính sách lọc dữ liệu:
-Áp dụng các quy tắc hợp lệ xác định trước có nhận biết biến mục tiêu (Predefined target-aware
-validity rules used to define the supported market scope; thresholds are fixed before model
-development and are not tuned on Validation/Test performance). Ví dụ: 100 triệu <= asking price <= 50 tỷ VND
-và diện tích 5 - 500 m² xác định phạm vi phân khúc thị trường được hỗ trợ bởi nền tảng, không phải
-là đặc trưng mô hình.
+Các ngưỡng giá và diện tích được cố định trước khi đánh giá model. Chúng xác
+định phạm vi dữ liệu hỗ trợ, không phải đặc trưng được tune theo Test.
 """
 
 import pandas as pd
@@ -21,18 +17,14 @@ from .validation import filter_numeric_outliers, parse_listing_dates
 def clean_data(raw: pd.DataFrame) -> pd.DataFrame:
     """Tiền xử lý, chuẩn hóa, lọc phạm vi thị trường và deduplicate ở cấp độ tin đăng.
 
-    QUY TRÌNH CHUẨN HÓA DATA LIFECYCLE:
-    1. Kiểm tra Schema (các cột bắt buộc: Price, Area, Property Type, Location).
-    2. Lọc loại hình nhà ở dân dụng (`RESIDENTIAL_TYPES`).
-    3. Chuẩn hóa khu vực hành chính TP.HCM (`location_area`).
-    4. Ép kiểu số và áp dụng quy tắc phạm vi thị trường (Predefined target-aware validity rules).
-    5. Kiểm tra tọa độ GPS trong ranh giới TP.HCM.
-    6. Chuẩn hóa ngày đăng `listing_date` và cờ khuyết ngày `listing_date_missing`.
-    7. Định danh bất động sản đa tầng (Multi-level Property Identity Resolution) gán `property_group_id`.
-    8. KHỬ TRÙNG CẤP ĐỘ TIN ĐĂNG (Listing-level Dedup):
-       Chỉ loại bỏ tin đăng trùng hoàn toàn (`property_group_id`, `listing_date`, `Price`).
-       GIỮ LẠI các tin đăng lặp lại theo dòng thời gian của cùng một căn nhà (ví dụ đăng lại
-       đổi giá theo chu kỳ thị trường) để phục vụ Group-isolated Temporal Split an toàn và chuẩn xác.
+    Các bước chính:
+    1. Kiểm tra schema bắt buộc.
+    2. Lọc loại hình và khu vực thuộc market scope.
+    3. Ép kiểu số, lọc phạm vi giá/diện tích và kiểm tra GPS.
+    4. Chuẩn hóa ngày đăng và provenance.
+    5. Gán `property_group_id` bằng identity resolution.
+    6. Loại exact duplicate ở cấp listing event; giữ các lần đăng lại khác ngày
+       hoặc giá để phục vụ đánh giá theo thời gian.
 
     Args:
         raw: DataFrame dữ liệu thô.
@@ -66,6 +58,7 @@ def clean_data(raw: pd.DataFrame) -> pd.DataFrame:
 
     # 7. Định danh bất động sản đa tầng bằng Union-Find
     df, identity_audit = resolve_property_identities(df)
+    rows_identity_resolved = int(df["property_group_id"].notna().sum())
 
     # 8. Tách identity của listing event khỏi property vật lý.
     if "source_id" not in df:
@@ -104,6 +97,7 @@ def clean_data(raw: pd.DataFrame) -> pd.DataFrame:
     audit_stats = {
         "rows_raw": rows_raw,
         "rows_valid": rows_valid,
+        "rows_identity_resolved": rows_identity_resolved,
         "rows_clean": rows_clean,
         "unique_property_groups": unique_properties,
         "multi_listing_groups_count": int(

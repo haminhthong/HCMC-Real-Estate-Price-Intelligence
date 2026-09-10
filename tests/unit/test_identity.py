@@ -1,6 +1,7 @@
 """Kiểm thử đơn vị cho mô-đun Identity và Chữ ký bất động sản."""
 
 import pandas as pd
+
 from src.data.identity import assign_property_group, make_property_signature
 
 

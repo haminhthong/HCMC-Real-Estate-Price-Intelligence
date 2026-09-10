@@ -1,9 +1,4 @@
-"""Ứng dụng Web Dashboard Định Giá Bất Động Sản TP.HCM (Streamlit).
-
-Được thiết kế hiện đại với bố cục tab, hiển thị dự báo giá điểm trung tâm,
-khoảng tin cậy Conformal Prediction (coverage 80%), cảnh báo tính toàn vẹn dữ liệu,
-và đồ thị giải thích SHAP cho từng kết quả định giá.
-"""
+"""Dashboard Streamlit cho dự báo giá và kiểm tra listing tương đồng."""
 
 import sys
 from pathlib import Path
@@ -16,9 +11,19 @@ ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
-from src.artifacts.loader import load_production_model as load_model  # noqa: E402
-from src.config import CANONICAL_SPLIT_PROTOCOL, RESIDENTIAL_TYPES, SUPPORTED_AREAS  # noqa: E402
-from src.serving.predictor import predict_one  # noqa: E402
+from src.artifacts.loader import load_model
+from src.config import CANONICAL_SPLIT_PROTOCOL, RESIDENTIAL_TYPES, SUPPORTED_AREAS
+from src.serving.predictor import predict_one
+
+try:
+    _ui_model_package = load_model()
+except (FileNotFoundError, KeyError, ValueError):
+    _ui_model_package = {}
+
+SUPPORTED_MODEL_TYPES = (
+    _ui_model_package.get("supported_property_types") or RESIDENTIAL_TYPES
+)
+SUPPORTED_MODEL_AREAS = _ui_model_package.get("supported_areas") or SUPPORTED_AREAS
 
 # ---------------------------------------------------------------------------
 # Cấu hình trang Streamlit và kiểu hiển thị
@@ -75,7 +80,7 @@ tab_predict, tab_shap, tab_info = st.tabs(
     [
         "🏠 Dự Báo Giá",
         "📊 Phân Tích SHAP & Thị Trường",
-        "ℹ️ Thông Tin Mô Hình & MLOps",
+        "ℹ️ Thông Tin Mô Hình & Dữ Liệu",
     ]
 )
 
@@ -90,10 +95,10 @@ with tab_predict:
 
         with col1:
             st.markdown("**Thông tin cơ bản**")
-            property_type = st.selectbox("Loại bất động sản (*)", RESIDENTIAL_TYPES)
+            property_type = st.selectbox("Loại bất động sản (*)", SUPPORTED_MODEL_TYPES)
             area_name = st.selectbox(
                 "Quận/huyện khu vực (*)",
-                [area for area in SUPPORTED_AREAS if area != "Unknown"],
+                [area for area in SUPPORTED_MODEL_AREAS if area != "Unknown"],
             )
             area = st.number_input(
                 "Diện tích đất/sử dụng (m²) (*)", 5.0, 500.0, 80.0, step=5.0
@@ -176,8 +181,9 @@ with tab_predict:
             res_c1, res_c2, res_c3 = st.columns(3)
 
             price_billion = result["predicted_price_million"] / 1000
-            lower_billion = result["lower_bound_million"] / 1000
-            upper_billion = result["upper_bound_million"] / 1000
+            interval = result["prediction_interval"]
+            lower_billion = interval["lower_million"] / 1000
+            upper_billion = interval["upper_million"] / 1000
 
             res_c1.metric(
                 label="Giá Ước Tính (Point Estimate)",
@@ -191,58 +197,17 @@ with tab_predict:
                 help="Khoảng dự báo bao phủ 80% trường hợp thực tế nhờ Split Conformal Residuals.",
             )
 
-            reliability_info = result.get("reliability", {})
-            rel_level = reliability_info.get(
-                "overall", result.get("confidence", "medium")
-            )
-            reliability_labels = {
-                "low": "🔴 THẤP (Cần thận trọng)",
-                "medium": "🟡 TRUNG BÌNH",
-                "high": "🟢 CAO",
-            }
             res_c3.metric(
-                label="Mức Độ Tin Cậy (Reliability Level)",
-                value=reliability_labels.get(rel_level, rel_level),
-                help="Đánh giá kết hợp giữa độ rộng khoảng dự báo, miền phân phối OOD và mức độ hoàn thiện dữ liệu.",
-            )
-
-            # Thanh điểm hoàn thiện dữ liệu
-            completeness = result.get(
-                "input_completeness_score", result.get("data_quality_score", 100.0)
-            )
-            st.progress(
-                completeness / 100,
-                text=f"Điểm Hoàn Thiện Dữ Liệu Đầu Vào: {completeness:.0f}/100%",
+                label="Số cảnh báo dữ liệu",
+                value=str(len(result.get("warnings", []))),
+                help="Cảnh báo được tạo từ input, tuổi dữ liệu và độ rộng khoảng dự báo.",
             )
 
             # Cảnh báo nếu có
             if result["warnings"]:
-                with st.expander(
-                    "⚠️ Cảnh Báo Tính Hợp Lệ & Phân Phối Dữ Liệu (OOD)", expanded=True
-                ):
+                with st.expander("⚠️ Cảnh báo dữ liệu và khoảng dự báo", expanded=True):
                     for warning in result["warnings"]:
                         st.warning(warning)
-
-            # Thông tin thị trường & Bất động sản tương đồng
-            st.markdown(
-                "### 🏘️ Bối Cảnh Thị Trường & Bất Động Sản Tương Đồng (Comparables)"
-            )
-            m_ctx = result.get("market_context", {})
-            col_m1, col_m2 = st.columns(2)
-            segment_price = m_ctx.get(
-                "segment_median_unit_price_million_m2",
-                result.get("segment_median_unit_price_million_m2"),
-            )
-            comp_price = m_ctx.get("comparable_median_price_million")
-
-            if segment_price is not None:
-                col_m1.info(
-                    f"💡 **Trung vị phân khúc**: **{segment_price:,.1f} triệu VND/m²** ({property_type} tại {area_name})"
-                )
-            if comp_price is not None:
-                col_m2.info(
-                    f"📍 **Trung vị bất động sản tương đồng**: **{comp_price / 1000:,.2f} tỷ VND**"
-                )
 
             # Bảng so sánh bất động sản tương đồng
             comparables = result.get("comparables", [])
@@ -311,16 +276,16 @@ with tab_shap:
         )
 
 # ---------------------------------------------------------------------------
-# TAB 3: THÔNG TIN MÔ HÌNH & MLOPS
+# TAB 3: THÔNG TIN MÔ HÌNH & DỮ LIỆU
 # ---------------------------------------------------------------------------
 with tab_info:
-    st.subheader("Thông Tin Kiến Trúc Mô Hình & MLOps Pipeline")
+    st.subheader("Thông Tin Mô Hình & Luồng Dữ Liệu")
     try:
         model_package = load_model()
         c_info1, c_info2 = st.columns(2)
 
         with c_info1:
-            st.markdown("### 🛠️ Cấu Hướng Mô Hình")
+            st.markdown("### 🛠️ Cấu hình mô hình")
             st.write(
                 f"- **Phiên bản mô hình**: `{model_package.get('version', '1.0.0')}`"
             )
@@ -328,8 +293,7 @@ with tab_info:
                 f"- **Thuật toán chính**: `{model_package.get('model_type', 'ExtraTreesRegressor')}`"
             )
             st.write(
-                f"- **Giao thức phân chia dữ liệu**: "
-                f"`{model_package.get('split_protocol', CANONICAL_SPLIT_PROTOCOL)}`"
+                f"- **Split**: `{model_package.get('split_protocol', CANONICAL_SPLIT_PROTOCOL)}`"
             )
             st.write(
                 f"- **Mục tiêu bao phủ Conformal**: `{model_package.get('target_coverage', 0.8) * 100:.0f}%`"
@@ -339,9 +303,9 @@ with tab_info:
             st.markdown("### 🛡️ Nguyên Lý Chống Data Leakage")
             st.markdown(
                 """
-                1. **Grouped Temporal Split**: Nhóm tin đăng trùng theo `property_group_id` và chia dữ liệu theo dòng thời gian.
-                2. **Pipeline Categorical & Imputer**: Chi `fit` trên tập Train, loại trừ khả năng rò rỉ thông tin từ Calibration/Test.
-                3. **Conformal Uncertainty**: Đảm bảo khoảng bao phủ tin cậy không phụ thuộc vào giả định phân phối chuẩn.
+                1. **Identity trước split**: cùng `property_group_id` không xuyên qua các tập.
+                2. **FeatureContext train-only**: preprocessing được fit trước trên Train.
+                3. **Conformal interval**: Calibration riêng, Final Future Test chỉ dùng để báo cáo.
                 """
             )
     except (FileNotFoundError, KeyError, ValueError) as exc:

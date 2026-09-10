@@ -1,13 +1,8 @@
-"""Mô-đun định danh bất động sản vật lý (Property Identity Resolution) và nhóm tin đăng.
+"""Resolve repeated listings that likely refer to the same physical property.
 
-Ứng dụng kiến trúc phân tầng đa cấp (Multi-level Identity Resolution) kết hợp cấu trúc
-dữ liệu Union-Find (Disjoint-Set) để nhận diện chính xác các tin đăng cùng một căn nhà:
-- Level 1 (Strong Match): Cùng địa chỉ chuẩn hóa, cùng loại hình, diện tích khớp chuẩn xác và GPS/kết cấu tương thích.
-- Level 2 (Medium Match): Cùng khu vực hành chính (quận/phường/đường), cùng loại hình, diện tích lệch <= 3%, số phòng/tầng tương thích.
-- Level 3 (Weak Match): Cùng phân đoạn khu vực, tương đồng kết cấu cao.
-
-Gán mã định danh duy nhất (property_group_id) và mức độ tin cậy định danh (identity_confidence),
-phục vụ cơ chế chia tập Group-isolated Temporal Split chống rò rỉ dữ liệu (Data Leakage).
+Strong and medium matches may be grouped into ``property_group_id``. Weak
+matches are only flagged for review so that similar listings are not merged
+aggressively. Each listing event keeps its own date and price.
 """
 
 from typing import Any

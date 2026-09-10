@@ -1,4 +1,4 @@
-"""Mô-đun Phase B: Tái huấn luyện Champion Model trên tập gộp Train + Validation (Final Refit)."""
+"""Refit champion model trên tập gộp Train và Validation."""
 
 from typing import Any
 
@@ -26,7 +26,7 @@ def refit_champion_model(
     1. 15% Validation sau khi dùng để chọn mô hình sẽ được gộp vào Train để tối đa hóa dữ liệu học.
     2. Cập nhật mốc thời gian tham chiếu `reference_date_final = max(listing_date của Train + Validation)`.
     3. Đóng băng `final_feature_context` làm quy chuẩn cho Calibration, Test và Serving.
-    4. Trích xuất các phân vị P01 - P99 và bảng đơn giá phân khúc phục vụ kiểm tra OOD.
+    4. Lưu miền giá trị quan sát của feature để cảnh báo input nằm ngoài dữ liệu train.
     """
     logger.info(
         "--- BẮT ĐẦU PHASE B: FINAL REFIT CHAMPION MODEL TRÊN TRAIN + VALIDATION (75%) ---"
@@ -74,7 +74,7 @@ def refit_champion_model(
         .to_dict()
     )
 
-    # Phân vị P01 - P99 cho kiểm tra OOD
+    # Miền giá trị quan sát, chỉ dùng để phát cảnh báo input ngoại suy.
     training_ranges = {
         col: [
             float(features_train_dev[col].min()),
@@ -83,15 +83,6 @@ def refit_champion_model(
         for col in NUMERIC_FEATURES
         if features_train_dev[col].notna().any()
     }
-    training_quantiles = {
-        col: [
-            float(np.nanpercentile(features_train_dev[col], 1)),
-            float(np.nanpercentile(features_train_dev[col], 99)),
-        ]
-        for col in NUMERIC_FEATURES
-        if features_train_dev[col].notna().any()
-    }
-
     return {
         "champion_pipeline": champion_pipeline,
         "final_feature_context": final_feature_context,
@@ -101,7 +92,6 @@ def refit_champion_model(
         "segment_baseline": segment_baseline,
         "segment_unit_prices": segment_unit_prices,
         "training_ranges": training_ranges,
-        "training_quantiles": training_quantiles,
         "selected_model_name": selected_model_name,
         "selected_target_fmt": selected_target_fmt,
     }

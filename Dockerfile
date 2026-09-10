@@ -10,9 +10,8 @@ COPY . .
 RUN useradd --create-home appuser && chown -R appuser:appuser /app
 USER appuser
 
-RUN python -c "from src.predict import load_model; load_model()"
+RUN python -c "from src.artifacts.loader import load_model; load_model()"
 
 EXPOSE 8000
-EXPOSE 8501
 
 CMD ["uvicorn", "api.main:app", "--host", "0.0.0.0", "--port", "8000"]

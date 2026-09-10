@@ -1,0 +1,56 @@
+{
+  "model_version": "1.2.0",
+  "model_type": "extra_trees",
+  "target_formulation": "total_price",
+  "split_protocol": "group_isolated_temporal_split_60_15_10_15_by_latest_property_date",
+  "train_rows": 443,
+  "validation_rows": 93,
+  "calibration_rows": 86,
+  "test_rows": 101,
+  "validation": {
+    "mae_million": 3470.388464456773,
+    "median_ae_million": 2147.2780641555146,
+    "rmse_million": 5177.0130312249075,
+    "r2": 0.27989553949370927,
+    "mape_percent": 67.07885810162989,
+    "wape_percent": 45.19,
+    "smape_percent": 40.89
+  },
+  "test": {
+    "mae_million": 4945.6871120078795,
+    "median_ae_million": 2756.270537413755,
+    "rmse_million": 8189.668524779125,
+    "r2": 0.08246236874279445,
+    "mape_percent": 42.25106933617794,
+    "wape_percent": 45.04,
+    "smape_percent": 44.72
+  },
+  "baselines": {
+    "naive_median": {
+      "mae_million": 6323.366336633663,
+      "median_ae_million": 3400.0,
+      "rmse_million": 10155.56307577963,
+      "r2": -0.41090980854733483,
+      "mape_percent": 54.6584232677478,
+      "wape_percent": 57.59,
+      "smape_percent": 60.1
+    },
+    "district_property_segment_median": {
+      "mae_million": 6041.435643564357,
+      "median_ae_million": 3295.0,
+      "rmse_million": 9994.61482474685,
+      "r2": -0.3665431845201452,
+      "mape_percent": 49.475884616413104,
+      "wape_percent": 55.02,
+      "smape_percent": 55.92
+    }
+  },
+  "interval": {
+    "target_coverage": 0.8,
+    "actual_coverage": 0.7524752475247525,
+    "coverage_gap": -0.04752475247524757,
+    "mean_interval_width_million": 10967.302013243989,
+    "median_interval_width_million": 10140.315762114424,
+    "relative_interval_width": 0.9987894966255886
+  }
+}

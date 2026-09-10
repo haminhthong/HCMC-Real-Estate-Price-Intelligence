@@ -1,13 +1,13 @@
-from pathlib import Path
 import json
 import tempfile
+from pathlib import Path
 
 import joblib
 import numpy as np
 import pandas as pd
 import pytest
 
-from src.artifacts.loader import load_production_model as load_model
+from src.artifacts.loader import load_model
 from src.calibration.conformal import conformal_quantile
 from src.serving.predictor import predict_one
 
@@ -57,9 +57,11 @@ def test_real_model_prediction_schema():
     result = predict_one(sample_input, include_explanation=False)
 
     assert result["predicted_price_million"] >= 0
-    assert result["lower_bound_million"] >= 0
-    assert result["upper_bound_million"] >= result["lower_bound_million"]
-    assert result["confidence"] in ("low", "medium", "high")
+    assert result["prediction_interval"]["lower_million"] >= 0
+    assert (
+        result["prediction_interval"]["upper_million"]
+        >= result["prediction_interval"]["lower_million"]
+    )
     assert result["top_contributions"] == []
 
 
@@ -114,15 +116,15 @@ def test_input_at_min_max_bounds():
     assert result_max["predicted_price_million"] >= 0
 
 
-def test_unseen_category_in_train_generates_warning():
+def test_unseen_category_in_train_is_rejected():
     sample_input = {
         "Property Type": "Nhà riêng",
         "location_area": "Quận Chưa Có",
         "Area": 80.0,
         "Bedrooms": 3,
     }
-    result = predict_one(sample_input)
-    assert any("CẢNH BÁO KHU VỰC" in w for w in result["warnings"])
+    with pytest.raises(ValueError, match="chưa được hỗ trợ"):
+        predict_one(sample_input)
 
 
 def test_optional_fields_all_missing():
@@ -134,11 +136,11 @@ def test_optional_fields_all_missing():
     }
     result = predict_one(minimal_input)
     assert result["predicted_price_million"] > 0
-    assert result["data_quality_score"] > 0
+    assert result["warnings"]
 
 
 def test_conformal_residual_space_matches_inference_space():
-    """P0 TEST: Kiểm chứng không gian conformal residual khớp với inference log-space.
+    """Kiểm chứng residual conformal khớp với inference log-space.
 
     1. Mô hình dự báo trên log1p(Price).
     2. Conformal residual được tính trên thang log: e_i = |log1p(y_i) - y_hat_log|.
@@ -160,8 +162,8 @@ def test_conformal_residual_space_matches_inference_space():
     }
     result = predict_one(sample_input)
     pred_price = result["predicted_price_million"]
-    lower_price = result["lower_bound_million"]
-    upper_price = result["upper_bound_million"]
+    lower_price = result["prediction_interval"]["lower_million"]
+    upper_price = result["prediction_interval"]["upper_million"]
 
     # Khoảng tiền tệ là bất đối xứng (Asymmetric Monetary Interval)
     diff_upper = upper_price - pred_price
@@ -179,7 +181,7 @@ def test_conformal_residual_space_matches_inference_space():
 
 
 def test_comparable_engine_returns_valid_matches():
-    """P1 TEST: Kiểm tra động cơ tìm kiếm bất động sản tương đồng."""
+    """Kiểm tra động cơ tìm kiếm bất động sản tương đồng."""
     load_model.cache_clear()
     sample_input = {
         "Property Type": "Nhà riêng",
@@ -195,11 +197,12 @@ def test_comparable_engine_returns_valid_matches():
     assert "property_type" in top_comp
     assert "similarity_score" in top_comp
     assert 0.0 <= top_comp["similarity_score"] <= 1.0
-    assert result["market_context"]["comparable_median_price_million"] is not None
+    assert result["market_reference_date"] is not None
+    assert isinstance(result["market_age_days"], int)
 
 
 def test_days_from_reference_no_negative_collapse():
-    """P0 TEST: Đảm bảo listing_date mới hơn mốc tham chiếu không bị collapse về 0."""
+    """Đảm bảo listing_date mới hơn mốc tham chiếu không bị collapse về 0."""
     from src.features.builder import make_features
 
     ref_date = pd.Timestamp("2025-01-01")
@@ -211,7 +214,7 @@ def test_days_from_reference_no_negative_collapse():
 
 
 def test_text_flag_negation_handling():
-    """P1 TEST: Kiểm tra xử lý từ phủ định cho các cờ nhị phân."""
+    """Kiểm tra xử lý từ phủ định cho các cờ nhị phân."""
     from src.features.builder import make_features
 
     # Nhà không có nội thất
@@ -228,21 +231,3 @@ def test_text_flag_negation_handling():
     )
     feats_yes = make_features(row_furniture)
     assert feats_yes["has_furniture"].iloc[0] == 1
-
-
-def test_decomposed_reliability_structure():
-    """P0 TEST: Kiểm tra cấu trúc độ tin cậy phân rã đa chiều."""
-    sample_input = {
-        "Property Type": "Nhà riêng",
-        "location_area": "Quận 1",
-        "Area": 80.0,
-        "Bedrooms": 3,
-    }
-    result = predict_one(sample_input)
-    assert "reliability" in result
-    rel = result["reliability"]
-    assert rel["overall"] in ("low", "medium", "high")
-    assert rel["reliability_level"] in ("low", "medium", "high")
-    assert "input_completeness_score" in rel
-    assert rel["domain_support"] in ("in_domain", "warning_ood")
-    assert rel["interval_risk"] in ("tight", "moderate", "wide_interval")

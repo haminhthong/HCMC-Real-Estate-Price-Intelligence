@@ -24,13 +24,9 @@ def evaluate_champion_on_test(
 ) -> dict[str, Any]:
     """Đánh giá độc lập mô hình Champion và các baselines trên tập Test (Report Only).
 
-    NGUYÊN TẮC P0:
-    1. Tập Test CHỈ ĐÁNH GIÁ duy nhất mô hình Champion đã refit và 2 baselines:
-       - Naive Median
-       - District x Property Type Segment Median
-    2. TUYỆT ĐỐI KHÔNG so sánh hoặc đánh giá 5 candidate models trên Test để ngăn ngừa
-       nguy cơ data leakage quyết định (nhìn test rồi thay đổi lựa chọn).
-    3. Tính toán toàn diện: metrics hồi quy, metrics khoảng dự báo, và phân tích slice.
+    Tập Test chỉ dùng để đánh giá champion và hai baseline. Không dùng Test để
+    so sánh ứng viên hoặc tune model. Báo cáo gồm metrics hồi quy, khoảng dự
+    báo và phân tích slice.
     """
     logger.info("--- BẮT ĐẦU ĐÁNH GIÁ ĐỘC LẬP TRÊN TẬP TEST (15%) ---")
     test_actual = df_test["Price"].to_numpy()

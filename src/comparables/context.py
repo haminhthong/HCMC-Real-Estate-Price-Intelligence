@@ -1,8 +1,6 @@
 """Mô-đun quản lý ngữ cảnh chuẩn hóa cho động cơ tra cứu bất động sản tương đồng (ComparableContext)."""
 
-import json
 from dataclasses import asdict, dataclass, field
-from pathlib import Path
 from typing import Any
 
 import pandas as pd
@@ -90,16 +88,3 @@ class ComparableContext:
             allowed_areas=list(data.get("allowed_areas", [])),
             segment_counts=dict(data.get("segment_counts", {})),
         )
-
-    def save(self, filepath: Path | str) -> None:
-        """Lưu ngữ cảnh ra tệp JSON."""
-        path = Path(filepath)
-        path.parent.mkdir(parents=True, exist_ok=True)
-        with open(path, "w", encoding="utf-8") as f:
-            json.dump(self.to_dict(), f, ensure_ascii=False, indent=2)
-
-    @classmethod
-    def load(cls, filepath: Path | str) -> "ComparableContext":
-        """Nạp ngữ cảnh từ tệp JSON."""
-        with open(filepath, "r", encoding="utf-8") as f:
-            return cls.from_dict(json.load(f))

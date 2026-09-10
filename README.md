@@ -1,281 +1,347 @@
 # HCMC Real Estate Price Intelligence
 
-[![Python Version](https://img.shields.io/badge/Python-3.10%2B-blue.svg)](https://www.python.org/)
+[![Python](https://img.shields.io/badge/Python-3.10%2B-blue.svg)](https://www.python.org/)
 [![CI](https://github.com/haminhthong/hcmc-real-estate-price-intelligence/actions/workflows/ci.yml/badge.svg)](https://github.com/haminhthong/hcmc-real-estate-price-intelligence/actions/workflows/ci.yml)
-[![Pandas](https://img.shields.io/badge/pandas-2.2.3-150458.svg)](https://pandas.pydata.org/)
-[![FastAPI](https://img.shields.io/badge/FastAPI-0.115.5-009688.svg)](https://fastapi.tiangolo.com/)
-[![Streamlit](https://img.shields.io/badge/Streamlit-1.40.2-FF4B4B.svg)](https://streamlit.io/)
-[![scikit--learn](https://img.shields.io/badge/scikit--learn-1.5.2-F7931E.svg)](https://scikit-learn.org/)
-[![Pytest](https://img.shields.io/badge/pytest-8.3.3-0A9EDC.svg)](https://docs.pytest.org/)
-[![Ruff](https://img.shields.io/badge/Ruff-0.8.0-D7FF64.svg)](https://docs.astral.sh/ruff/)
-[![Docker](https://img.shields.io/badge/Docker-supported-2496ED.svg)](https://www.docker.com/)
+[![scikit-learn](https://img.shields.io/badge/scikit--learn-1.5.2-F7931E.svg)](https://scikit-learn.org/)
 [![License](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 
-Hệ thống ước lượng **giá niêm yết tham khảo** cho bất động sản nhà ở tại
-TP.HCM. Kết quả là giá chào bán dự kiến từ dữ liệu tin đăng, không phải giá
-giao dịch thực tế, thẩm định pháp lý, tư vấn tín dụng hoặc khuyến nghị đầu tư.
+Ước lượng **giá niêm yết tham khảo** cho nhà ở tại TP.HCM từ dữ liệu listing.
+Kết quả gồm giá điểm, khoảng dự báo conformal, cảnh báo dữ liệu và các listing
+tương đồng tồn tại trước thời điểm định giá. Đây là bài toán Data/ML có kiểm
+soát leakage, không phải hệ thống thẩm định giá pháp lý hay nền tảng production
+model registry.
 
-README này là tài liệu hiện hành duy nhất của dự án. Các tài liệu snapshot cũ
-đã được loại bỏ để tránh tạo nhiều contract cạnh tranh.
+README này là tài liệu hiện hành duy nhất. Cấu hình, code, artifact và báo cáo
+đều phải bám theo một pipeline canonical bên dưới.
 
-## 1. Bài toán và phạm vi ứng dụng
+## Bài toán và phạm vi ứng dụng
 
-### Bài toán
+Một căn nhà có thể xuất hiện nhiều lần:
 
-Từ dữ liệu tin đăng bất động sản, hệ thống cần:
+```text
+Listing A: 80 m², Quận 7, 6.8 tỷ, 01/03/2025
+Listing B: 80 m², Quận 7, 6.95 tỷ, 15/04/2025
+```
 
-- Chuẩn hóa schema, provenance, ngày đăng và phạm vi thị trường.
-- Nhận diện cùng một bất động sản nhưng vẫn giữ lại các lần đăng lại hợp lệ.
-- Đánh giá mô hình theo thời gian, không để cùng một bất động sản xuất hiện ở
-  nhiều tập dữ liệu.
-- Trả về giá điểm, khoảng dự báo conformal, comparables và mức độ tin cậy.
-- Lưu artifact có version, checksum và trạng thái release rõ ràng.
+Hai dòng này không được xử lý bằng `drop_duplicates()` đơn giản. Project tách:
 
-### Phạm vi hiện tại
+- `property_group_id`: căn nhà vật lý sau khi resolve identity.
+- `listing_event_id`: một lần rao cụ thể, giữ lại ngày và giá của lần rao đó.
 
-| Hạng mục | Contract |
+Identity resolution dùng địa chỉ/khu vực, loại hình, diện tích, kết cấu và GPS
+khi có. Match strong/medium có thể được gom vào cùng property group; match weak
+chỉ gắn cờ `possible_duplicate`, không tự động merge. Sau đó deduplicate ở cấp
+listing event để giữ lại các lần đăng lại hợp lệ.
+
+Phạm vi model hiện hành:
+
+| Hạng mục | Quy tắc |
 | --- | --- |
-| Khu vực | Các quận/huyện nằm trong `SUPPORTED_AREAS` của [`src/config.py`](src/config.py) |
-| Loại hình | Các loại nhà ở nằm trong `RESIDENTIAL_TYPES` |
+| Thị trường | Các khu vực có trong dữ liệu train và `SUPPORTED_AREAS` |
+| Loại hình | Các loại nhà ở xuất hiện trong dữ liệu train |
 | Diện tích | `5–500 m²` |
-| Giá mục tiêu | `100–50.000 triệu VND` theo giá niêm yết |
-| Target canonical | `log1p(Price)` trên tổng giá niêm yết |
-| Ngày thiếu | Không tự gán ngày crawl; dòng không có ngày bị loại khỏi temporal benchmark |
-| Missingness | Được giữ thành các feature indicator và dùng trong model |
-| Trạng thái release hiện tại | `research_only`; production pointer chỉ thay đổi khi Release Gate đạt |
+| Giá mục tiêu | `100–50.000 triệu VND`, là giá niêm yết |
+| Ngày | Dùng ngày cập nhật/listing; không tự gán ngày crawl giả |
+| Missingness | Giữ bằng missing indicators trong feature contract |
 
-Hệ thống không dùng cho định giá pháp lý, thế chấp, tranh chấp tài sản hoặc
-quyết định đầu tư tự động.
+Không dùng kết quả cho định giá pháp lý, thế chấp, tranh chấp tài sản hoặc quyết
+định đầu tư tự động. Khoảng dự báo rộng là thông tin về độ bất định, không phải
+lỗi cần che giấu bằng một nhãn “reliability” tự đặt.
 
-## 2. Luồng dữ liệu và luồng kỹ thuật canonical
+## Luồng logic, luồng dữ liệu và pipeline duy nhất
 
-Điểm cốt lõi của dự án là **identity + deduplication + provenance +
-point-in-time evaluation**. ExtraTrees chỉ là một thành phần trong toàn bộ
-chuỗi kiểm soát dữ liệu.
+Đây là quy trình chi phối toàn bộ code, artifact, API, Streamlit và báo cáo:
 
 ```mermaid
 flowchart TD
-    A[Raw listings CSV/Parquet] --> B[Schema validation]
-    B --> C[Market scope and numeric validation]
-    C --> D[Date and provenance normalization]
-    D --> E[Property identity resolution]
-    E --> F[Listing event deduplication]
-    F --> G[Canonical clean dataset]
-    G --> H[Canonical grouped temporal split]
-    H --> H1[Train 60%]
-    H --> H2[Validation 15%]
-    H --> H3[Calibration 10%]
-    H --> H4[Locked Future Test 15%]
-    H1 --> I[Train-only FeatureContext]
-    H2 --> J[Candidate model selection]
-    I --> J
-    J --> K[Refit champion on Train plus Validation]
-    K --> L[Conformal calibration on Calibration]
-    L --> M[Locked Test evaluation]
-    K --> N[Comparable reference context]
-    N --> O[Price Intelligence response]
-    M --> P[Development Gate and Release Gate]
-    P --> Q[Immutable candidate artifact]
-    Q --> R{Release Gate passed?}
-    R -->|Yes| S[Update production pointer]
-    R -->|No| T[Keep research_only and old production]
+    A[RAW LISTINGS] --> B[Schema + market validation]
+    B --> C[Address and date normalization]
+    C --> D[Property identity resolution]
+    D --> E[Listing-event deduplication]
+    E --> F[Clean historical listings]
+    F --> G[Group-isolated temporal split]
+    G --> G1[Train 60%]
+    G --> G2[Validation 15%]
+    G --> G3[Calibration 10%]
+    G --> G4[Locked future test 15%]
+    G1 --> H[Train-only FeatureContext]
+    G2 --> I[Naive / Segment / Ridge / ExtraTrees]
+    H --> I
+    I --> J[Select champion on Validation]
+    J --> K[Refit Train + Validation]
+    K --> L[Conformal calibration]
+    L --> M[Final future test evaluation]
+    K --> N[Point-in-time comparable context]
+    M --> O[Metrics + data summary + error analysis]
+    N --> P[Price estimate + interval + comparables]
+    P --> Q[FastAPI / Streamlit]
 ```
+
+Điểm chính của project là **identity, deduplication, provenance và point-in-time
+evaluation**. ExtraTrees chỉ là model được chọn trong một lần chạy; nó không phải
+toàn bộ câu chuyện.
 
 ### Canonical split duy nhất
 
-Protocol được `src/pipeline.py` chạy mặc định là:
+Code public chỉ có `split_group_indices()` trong
+[`src/data/split.py`](src/data/split.py). Protocol hiện hành là:
 
 ```text
-grouped_temporal_split_60_15_10_15_by_latest_group_listing_date
+group_isolated_temporal_split_60_15_10_15_by_latest_property_date
 ```
 
-| Tập | Tỷ lệ | Mục đích | Quyền sử dụng |
-| --- | ---: | --- | --- |
-| Train | 60% | Fit feature context, candidate models và baseline | Được train |
-| Validation | 15% | Chọn champion và target formulation | Chỉ dùng cho Development Gate |
-| Calibration | 10% | Tính residual quantile conformal | Không dùng chọn model |
-| Locked Future Test | 15% | Đánh giá release độc lập cuối cùng | Không quay ngược để tune model |
+Các `property_group_id` được sắp theo `listing_date` muộn nhất của từng group.
+Toàn bộ listing của một group đi vào cùng một tập. Listing không có ngày bị loại
+khỏi benchmark temporal, không bị gán một ngày giả. Vì group có thể chứa các
+listing cũ hơn ngày muộn nhất, đây là **group-isolated temporal split**, không
+phải strict row-level future holdout.
 
-Các group được sắp theo ngày listing muộn nhất. Toàn bộ listing của cùng một
-`property_group_id` đi vào cùng một split. Ngày unknown không bị coi là ngày
-mới nhất.
+| Tập | Tỷ lệ | Vai trò |
+| --- | ---: | --- |
+| Train | 60% | Fit context, baseline và candidate models |
+| Validation | 15% | Chọn model/target, không dùng Test |
+| Calibration | 10% | Tính residual quantile cho conformal interval |
+| Locked Future Test | 15% | Đánh giá generalization cuối cùng |
 
-`split_canonical_temporal_purged()` trong [`src/data/split.py`](src/data/split.py)
-là **alternative experiment** 70/10/20 (Development/Calibration/Locked Future
-Test), không phải protocol mà master pipeline đang chạy. Nó được giữ để so
-sánh nghiên cứu, không được gọi là canonical trong báo cáo release.
+Model selection chạy theo đúng chuỗi:
 
-### Chi tiết identity và listing event
+```text
+Train
+  ↓
+Naive Median / Segment Median / Ridge / ExtraTrees
+  ↓
+Validation: chọn champion
+  ↓
+Refit trên Train + Validation
+  ↓
+Calibration riêng
+  ↓
+Locked Future Test: report only
+```
 
-- `property_group_id`: identity vật lý của bất động sản.
-- `listing_event_id`: một lần rao cụ thể.
-- `strong`: source/listing ID hoặc match địa chỉ, loại hình, diện tích và GPS
-  với điều kiện chặt.
-- `medium`: match bảo thủ theo area/ward/street, loại hình, diện tích và kết
-  cấu khi thiếu GPS.
-- `weak`: chỉ ghi `possible_duplicate=true`, không tự động union.
-- Cùng nhà đăng lại ở ngày hoặc giá khác nhau vẫn được giữ lại để không làm mất
-  tín hiệu thời gian.
+Test không được dùng để chọn model hoặc tune hyperparameter.
 
-### Feature và model contract
+### Feature và model
 
-Training và serving đều dùng [`build_features()`](src/features/builder.py) với
-`FeatureContext` đã đóng băng:
+`FeatureContext` chỉ được fit từ Train khi selection và từ Train + Validation khi
+refit. Feature pipeline dùng chung cho train và serving, gồm:
 
-- số: diện tích, phòng, tầng, kích thước, GPS, khoảng cách CBD, độ đầy đủ;
-- phân loại: loại hình, khu vực, hướng, vị trí;
-- text flags: nội thất, hẻm xe hơi, gần chợ, gần trường, bán gấp;
-- missingness indicators: GPS, kích thước, phòng, tầng, loại đường và hẻm;
-- target canonical: `log1p(total_price)`;
-- candidate hiện tại: Naive median, Ridge và ExtraTrees regularized.
+- số: diện tích, phòng, tầng, kích thước, GPS, khoảng cách tới CBD và độ đầy đủ;
+- phân loại: loại hình, khu vực, hướng và vị trí;
+- text flags: nội thất, hẻm ô tô, gần chợ, gần trường, bán gấp;
+- missing indicators cho GPS, kích thước, phòng, tầng, loại đường và hẻm;
+- target log-space: `log1p(total_price)` hoặc `log1p(price_per_m2)`.
 
-Comparables là **evidence**, không phải estimator chính. Khi đánh giá offline,
-comparables chỉ được lấy từ Train và phải có listing date không muộn hơn ngày
-định giá; khi serving, reference context được fit sau refit từ Train +
-Validation.
+Candidate models gồm baseline đơn giản, Ridge và ExtraTrees. Không thêm XGBoost,
+LightGBM, neural network hay AutoML chỉ để làm architecture trông lớn hơn.
 
-## 3. Data-quality funnel
+### Conformal interval
+
+Calibration dùng residual trên cùng không gian log với inference. Khi trả về
+giá tiền, khoảng được ánh xạ ngược bằng `expm1`, vì vậy khoảng tiền có thể bất
+đối xứng. Response có:
+
+- `predicted_price_million`: point estimate;
+- `prediction_interval`: cận dưới, cận trên và coverage mục tiêu 80%;
+- `warnings`: miền input ngoài train, thiếu input/GPS, dữ liệu reference cũ hoặc
+  khoảng quá rộng.
+
+### Comparable listings
+
+Comparable engine là **heuristic retrieval/evidence**, không phải estimator thứ
+hai và không ensemble với model. Trọng số diện tích, GPS, phòng, CBD và recency
+được cấu hình thủ công cho prototype; chúng không phải hệ số thẩm định được học.
+
+Khi query tại thời điểm `t`, engine chỉ dùng listing có:
+
+```text
+listing_date <= t
+```
+
+và giới hạn ngữ cảnh trong 365 ngày gần nhất. Future listing và chính property
+đang định giá không được dùng làm comparable.
+
+## Data-quality funnel
+
+Funnel hiện hành được ghi trong [`reports/data_summary.json`](reports/data_summary.json):
 
 ```mermaid
 flowchart LR
     A[Raw listings\n2,500] --> B[Market scope valid\n727]
-    B --> C[Identity resolved\n723 events]
-    C --> D[Exact duplicate events removed\n4 removed]
-    D --> E[Clean listing events\n723]
+    B --> C[Identity resolved\n727 listing events]
+    C --> D[Exact duplicate listing events removed\n4]
+    D --> E[Clean historical listings\n723]
     E --> F[Temporal eligible\n723 known-date]
-    F --> G[Canonical model dataset\nTrain / Val / Calib / Test]
+    F --> G[Train 443 / Val 93 / Calib 86 / Test 101]
 ```
 
-Funnel được sinh lại trong `data_card.json` của mỗi run qua trường
-`data_quality_funnel`. Các con số trong sơ đồ là snapshot hiện hành của release
-đang được trỏ bởi `models/production.json`, không phải dữ liệu cố định cho mọi
-release sau này.
+Diễn giải funnel:
 
-## 4. Data Card hiện hành
+- 2.500 dòng raw được nạp từ `data/sample/data_public_sample.csv`;
+- 727 dòng nằm trong market scope sau schema, loại hình và numeric validation;
+- 727 listing events được gán `property_group_id` sau identity resolution;
+- 723 listing events còn lại sau exact dedup;
+- 621 property groups vật lý, trong đó 58 group có nhiều listing;
+- 4 exact duplicate listing events bị loại ở bước dedup;
+- 723 dòng có ngày và đủ điều kiện temporal benchmark.
 
-Nguồn duy nhất của metric release là
-[`reports/releases/v1.2.0/metrics.json`](reports/releases/v1.2.0/metrics.json).
-Data Card chi tiết được lưu ở [`artifacts/data_card.json`](artifacts/data_card.json)
-và được ghi lại cho từng run.
+## Data Card và metric hiện hành
+
+Nguồn metric duy nhất là [`reports/metrics.json`](reports/metrics.json). Không
+đưa metric cũ, metric notebook hoặc metric release folder vào README.
 
 | Trường | Giá trị hiện hành |
 | --- | ---: |
-| Snapshot | `data_public_sample.csv` |
+| Source | `data_public_sample.csv` |
+| Snapshot date | `2025-05-03` đến `2025-09-30` |
 | Raw listings | 2.500 |
-| Market-scope valid | 727 |
+| Valid listings | 727 |
 | Clean listing events | 723 |
-| Unique property groups | 707 |
+| Unique property groups | 621 |
 | Known-date listings | 723 |
 | Unknown-date listings | 0 |
-| District/area coverage | 21 khu vực trong artifact hiện hành |
+| District coverage | 22 giá trị, gồm `Unknown` |
 | Canonical split | 60 / 15 / 10 / 15 |
-| Model status | `research_only` |
 
-### Metric release hiện hành
+### Kết quả hiện hành trên Locked Future Test
+
+Artifact hiện tại chọn `extra_trees` với target `total_price`:
 
 | Metric | Giá trị |
 | --- | ---: |
-| Test MAE | 4.621,7 triệu VND |
-| Test WAPE | 42,92% |
-| Test R² | 0,134 |
+| Test samples | 101 |
+| Test MAE | 4.945,7 triệu VND |
+| Test WAPE | 45,04% |
+| Test R² | 0,082 |
+| Naive Median MAE | 6.323,4 triệu VND |
+| Segment Median MAE | 6.041,4 triệu VND |
 | Conformal target coverage | 80% |
-| Conformal test coverage | 84,40% |
-| Relative interval width | 117,20% |
-| Release decision | `research_only` |
+| Test interval coverage | 75,25% |
+| Mean interval width | 10.967,3 triệu VND |
+| Relative interval width | 99,88% |
 
-README chỉ hiển thị metric của release hiện hành; các metric lịch sử nằm trong
-artifact/run tương ứng, không được dùng thay cho release hiện tại.
+Các số liệu trên là báo cáo kết quả, không phải pass/fail release gate. Dataset
+mẫu nhỏ và heterogeneous nên khoảng dự báo rộng; đây là limitation cần nói rõ
+khi trình bày project.
 
-## 5. Ví dụ response prediction
+## Ví dụ prediction
 
-Ví dụ dưới đây minh họa contract response, không phải kết quả cố định cho mọi
-input:
+Ví dụ dưới đây dùng input `Nhà riêng`, `Quận 1`, `75 m²`, 3 phòng ngủ tại ngày
+`2026-09-10`. Field `market_age_days` giúp người dùng thấy reference data đã cũ
+bao lâu; `warnings` vẫn là cảnh báo cụ thể, không gom thành reliability score.
 
 ```json
 {
-  "predicted_price_million": 6850.0,
-  "lower_bound_million": 4300.0,
-  "upper_bound_million": 10800.0,
-  "confidence": "medium",
-  "model_version": "1.2.0",
-  "model_status": "research_only",
-  "valuation_as_of": "2026-09-08",
-  "model_market_reference": "2025-09-30T18:27:00",
-  "market_age_days": 343,
-  "reliability_level": "medium",
-  "warnings": ["STALE_MARKET_MODEL"],
-  "valuation": {
-    "point_estimate_million": 6850.0,
-    "prediction_interval": {
-      "lower_bound_million": 4300.0,
-      "upper_bound_million": 10800.0,
-      "target_coverage": 0.8
+  "predicted_price_million": 13440.3,
+  "prediction_interval": {
+    "lower_million": 6765.1,
+    "upper_million": 26700.9,
+    "coverage": 0.8
+  },
+  "comparables": [
+    {
+      "property_type": "Nhà riêng",
+      "location_area": "TP. Thủ Đức",
+      "area": 75.0,
+      "price_million": 14000.0,
+      "unit_price_million_m2": 186.7,
+      "similarity_score": 0.82
+    },
+    {
+      "property_type": "Nhà riêng",
+      "location_area": "Quận Tân Bình",
+      "area": 75.0,
+      "price_million": 7700.0,
+      "unit_price_million_m2": 102.7,
+      "similarity_score": 0.81
     }
-  },
-  "market_context": {
-    "segment_median_unit_price_million_m2": 82.4,
-    "comparable_median_price_million": 7200.0,
-    "comparable_median_unit_price_million_m2": 86.0
-  },
-  "comparables": [],
-  "disclaimer": "Giá tham khảo từ tin đăng, không phải giá giao dịch hoặc thẩm định pháp lý."
+  ],
+  "warnings": [
+    "MISSING_GPS: Thiếu GPS nên comparable không dùng được khoảng cách địa lý.",
+    "MISSING_INPUTS: Độ đầy đủ input chỉ đạt 10/100.",
+    "STALE_MARKET_REFERENCE: Dữ liệu train cũ hơn 345 ngày."
+  ],
+  "as_of_date": "2026-09-10",
+  "market_reference_date": "2025-09-29",
+  "market_age_days": 345,
+  "model_version": "1.2.0",
+  "top_contributions": [],
+  "disclaimer": "Giá niêm yết tham khảo từ dữ liệu tin đăng, không phải giá giao dịch hoặc thẩm định pháp lý."
 }
 ```
 
-API endpoint:
+Response thực tế có thể thay đổi theo input và artifact được train gần nhất.
+`top_contributions` chỉ có dữ liệu khi request bật `include_explanation`.
 
-- `GET /health`
-- `GET /model-info`
-- `POST /predict`
-- `POST /explain`
-- `GET /market/districts`
-
-## 6. Cấu trúc thư mục dự án
+## Cấu trúc thư mục
 
 ```text
 hcmc-real-estate-price-intelligence/
-├── api/                         # FastAPI schemas và endpoints
-├── app/                         # Streamlit UI
-├── .github/workflows/ci.yml     # CI: Ruff, pytest, evaluation report
-├── data/
-│   └── sample/                  # Dataset mẫu dùng để chạy thử
-├── models/
-│   ├── v<version>/              # Bundle immutable: model, context, calibration
-│   ├── production.json          # Pointer active production release
-│   └── candidate.json           # Candidate release gần nhất
-├── reference/v<version>/       # Comparables CSV/Parquet tách khỏi model
-├── artifacts/
-│   ├── runs/run_<timestamp>/    # Manifest, metrics, data card của từng run
-│   └── *.json                   # Snapshot tương thích ngược
-├── reports/
-│   ├── releases/v<version>/     # Metrics công bố cho từng release
-│   └── *.docx                   # Báo cáo audit, không tham gia runtime/CI
-├── notebooks/                   # EDA và demo; không chi phối production pipeline
+├── api/
+│   └── main.py                         # FastAPI: /health và /predict
+├── app/
+│   └── streamlit_app.py                # Demo định giá tương tác
+├── data/sample/
+│   └── data_public_sample.csv          # Dataset mẫu được phép theo dõi
 ├── src/
-│   ├── data/                    # Loader, validation, identity, split, manifest
-│   ├── features/                # Feature builder, context, text, temporal
-│   ├── modeling/                # Candidate, selection, trainer, baseline
-│   ├── calibration/             # Conformal calibration
-│   ├── comparables/             # Comparable context và benchmark
-│   ├── evaluation/              # Test metrics và báo cáo
-│   ├── reliability/             # OOD, stale model, reliability guards
-│   ├── serving/                 # Predictor, explain, serving comparables
-│   ├── artifacts/               # Writer, loader, schema, governance
-│   ├── pipeline.py              # Master lifecycle pipeline
-│   ├── data_processing.py       # Wrapper tương thích ngược, không phải pipeline chính
-│   ├── feature_engineering.py   # Wrapper tương thích ngược, không phải pipeline chính
-│   ├── predict.py                # Wrapper tương thích ngược cho notebook cũ
-│   └── train.py                  # Wrapper tương thích ngược cho lệnh cũ
-├── tests/                       # Unit, API, preprocessing, lifecycle tests
+│   ├── data/
+│   │   ├── loader.py                   # Nạp raw data
+│   │   ├── schema.py                   # Schema contract
+│   │   ├── validation.py                # Numeric/date validation
+│   │   ├── cleaning.py                 # Data quality + listing dedup
+│   │   ├── identity.py                 # Property identity resolution
+│   │   └── split.py                    # Canonical group temporal split
+│   ├── features/
+│   │   ├── builder.py                  # Feature builder dùng chung
+│   │   ├── context.py                  # Train-only FeatureContext
+│   │   └── text.py                     # Text flags
+│   ├── modeling/
+│   │   ├── baselines.py
+│   │   ├── candidates.py
+│   │   ├── pipelines.py
+│   │   ├── selector.py
+│   │   └── trainer.py
+│   ├── calibration/conformal.py        # Split conformal
+│   ├── comparables/
+│   │   ├── context.py
+│   │   └── engine.py                   # Point-in-time evidence retrieval
+│   ├── evaluation/
+│   │   ├── metrics.py
+│   │   ├── evaluator.py
+│   │   └── report.py
+│   ├── serving/
+│   │   ├── predictor.py
+│   │   ├── input_validation.py
+│   │   ├── comparables.py
+│   │   └── explain.py
+│   ├── artifacts/
+│   │   ├── loader.py
+│   │   └── writer.py
+│   └── pipeline.py                     # Entry point duy nhất
+├── artifacts/
+│   ├── model.joblib
+│   ├── feature_context.json
+│   ├── calibration.json
+│   └── comparables.csv
+├── reports/
+│   ├── metrics.json
+│   ├── data_summary.json
+│   └── error_analysis.json
+├── notebooks/
+├── tests/
+├── .github/workflows/ci.yml
+├── Dockerfile
 ├── requirements.txt
 ├── requirements-dev.txt
-├── Dockerfile
-└── docker-compose.yml
+└── README.md
 ```
 
-## 7. Cài đặt và chạy thử nghiệm
+Không còn `models/v<version>`, `reference/v<version>`, production pointer,
+candidate pointer, `artifacts/runs`, checksum runtime, release gate,
+`src/reliability`, compatibility wrappers hoặc Docker Compose. Git history đủ để
+theo dõi thay đổi code; artifact hiện tại có một nguồn sự thật phẳng.
 
-### Cài đặt local
+## Cài đặt và chạy thử nghiệm
 
 Yêu cầu Python 3.10 trở lên:
 
@@ -283,81 +349,101 @@ Yêu cầu Python 3.10 trở lên:
 python -m venv .venv
 .\.venv\Scripts\Activate.ps1
 python -m pip install --upgrade pip
-pip install -r requirements-dev.txt
+python -m pip install -r requirements-dev.txt
 ```
 
-### Chạy test và lint
+### Kiểm tra code và test
 
 ```powershell
-python -m pytest -q -p no:cacheprovider
+python -m pip check
 python -m ruff check --no-cache api app src tests
 python -m ruff format --check --no-cache api app src tests
+python -m pytest -q -p no:cacheprovider
+python -B -m src.evaluate
 ```
 
-### Chạy canonical training pipeline
+### Chạy pipeline canonical
 
-Không ghi đè version đã tồn tại. Hãy dùng version mới cho mỗi lần train:
+Lệnh này dùng dataset mẫu mặc định và ghi đè **snapshot hiện hành** trong
+`artifacts/` và `reports/`:
 
 ```powershell
-python -m src.pipeline train --data-path data/sample/data_public_sample.csv --version 1.3.0
+python -B -m src.pipeline train
 ```
 
-Pipeline sẽ tạo:
+Hoặc chỉ rõ dữ liệu:
 
-- `models/v1.3.0/` immutable bundle;
-- `reference/v1.3.0/` comparables reference;
-- `artifacts/runs/run_<timestamp>/` audit snapshot;
-- `reports/releases/v1.3.0/metrics.json` release metrics;
-- `models/candidate.json`;
-- chỉ cập nhật `models/production.json` nếu Release Gate đạt.
+```powershell
+python -B -m src.pipeline train --data-path data/sample/data_public_sample.csv
+```
 
-### Chạy API và giao diện
+Không truyền `--version` và không tạo release folder. `MODEL_VERSION` trong
+`src/config.py` chỉ là nhãn hiển thị của snapshot model, không phải production
+pointer.
+
+### Chạy API và Streamlit
 
 ```powershell
 uvicorn api.main:app --reload --port 8000
 streamlit run app/streamlit_app.py
 ```
 
-Swagger UI: <http://127.0.0.1:8000/docs>
-
-### Chạy bằng Docker Compose
-
-```powershell
-docker compose up --build
-```
-
-- API: <http://127.0.0.1:8000/docs>
+- API docs: <http://127.0.0.1:8000/docs>
+- API contract: `GET /health`, `POST /predict`
 - Dashboard: <http://127.0.0.1:8501>
 
-### CI
+Ví dụ request:
 
-Workflow [`ci.yml`](.github/workflows/ci.yml) chạy trên mỗi push, pull request
-hoặc có thể kích hoạt thủ công bằng `workflow_dispatch`. CI cài
-`requirements-dev.txt`, chạy `pip check`, kiểm tra Ruff trên `api`, `app`, `src`
-và `tests` (lint và format), chạy toàn bộ pytest và kiểm tra báo cáo evaluation đã lưu. CI không train lại
-hoặc ghi đè artifact version đã tồn tại; việc train release được thực hiện
-riêng qua canonical pipeline với version mới.
+```powershell
+curl -X POST http://127.0.0.1:8000/predict `
+  -H "Content-Type: application/json" `
+  -d '{"Property Type":"Nhà riêng","location_area":"Quận 1","Area":75,"Bedrooms":3}'
+```
 
-## 8. Governance và nguyên tắc an toàn
+### Docker
 
-- Development Gate chỉ đọc Validation; Release Gate chỉ đọc Locked Future Test
-  và Conformal Calibration.
-- Không dùng Test để quay ngược tinh chỉnh hyperparameter.
-- Bundle release đã tồn tại không được ghi đè.
-- Loader production kiểm tra production pointer, file bắt buộc và SHA256; lỗi
-  artifact thì fail-closed.
-- `research_only` không được tự động thay thế production model hiện hành.
-- Model cũ hơn 180 ngày so với `as_of_date` phát cảnh báo
-  `STALE_MARKET_MODEL`.
-- Comparables không được lấy từ tương lai so với thời điểm định giá.
-- Dữ liệu không có ngày không được biến thành ngày crawl giả.
+Dockerfile chạy API và kiểm tra artifact phẳng khi build:
 
-## 9. Tệp tham chiếu quan trọng
+```powershell
+docker build -t hcmc-real-estate-price-intelligence .
+docker run --rm -p 8000:8000 hcmc-real-estate-price-intelligence
+```
+
+Streamlit là demo local riêng và có thể chạy bằng lệnh `streamlit run` ở trên.
+
+## CI
+
+Workflow [`ci.yml`](.github/workflows/ci.yml) chạy trên push, pull request và
+`workflow_dispatch`, gồm:
+
+1. cài `requirements-dev.txt`;
+2. `pip check`;
+3. Ruff lint;
+4. Ruff format check;
+5. toàn bộ pytest;
+6. đọc và kiểm tra `reports/metrics.json` bằng `src.evaluate`.
+
+CI không train lại, không promote model và không deploy. Vì artifact flat hiện
+đang được lưu trong repo, bước test có thể chạy trực tiếp sau checkout.
+
+## Giới hạn cần nói rõ
+
+- Dữ liệu là asking price từ listing, không phải transaction price.
+- Dataset mẫu chỉ có 723 listing events và 621 property groups sau lọc.
+- Thị trường heterogeneous nên Test R² thấp và conformal interval rộng.
+- Comparable weights là heuristic thủ công; chưa phải appraisal coefficients.
+- Identity resolution bảo thủ: weak match chỉ cảnh báo, có thể bỏ sót một số merge.
+- Kết quả chỉ có ý nghĩa trong market scope và miền dữ liệu đã train.
+
+## Tệp tham chiếu quan trọng
 
 - [Canonical pipeline](src/pipeline.py)
-- [Data cleaning và identity](src/data/cleaning.py)
-- [Temporal split](src/data/split.py)
+- [Data cleaning và listing dedup](src/data/cleaning.py)
+- [Property identity resolution](src/data/identity.py)
+- [Canonical temporal split](src/data/split.py)
 - [Feature contract](src/features/context.py)
+- [Conformal calibration](src/calibration/conformal.py)
+- [Comparable retrieval](src/comparables/engine.py)
 - [Serving predictor](src/serving/predictor.py)
-- [Artifact governance](src/artifacts/writer.py)
-- [Current release metrics](reports/releases/v1.2.0/metrics.json)
+- [Current metrics](reports/metrics.json)
+- [Current data summary](reports/data_summary.json)

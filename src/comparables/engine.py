@@ -1,15 +1,12 @@
 """Động cơ tra cứu bất động sản tương đồng đa chiều (Comparable Properties Engine).
 
-Áp dụng chuẩn mực định giá bất động sản chuyên sâu:
-1. Lọc ứng viên (Candidate Filter): Cùng loại hình, cùng khu vực (hoặc lân cận), loại trừ chính căn nhà đó (property_group_id).
-2. Khoảng cách chuẩn hóa đa chiều (Multi-dimensional Weighted Distance):
-   - Diện tích (30%)
-   - Khoảng cách địa lý thực tế Haversine GPS (25%)
-   - Số phòng ngủ (15%)
-   - Số phòng vệ sinh (10%)
-   - Khoảng cách tới CBD (10%)
-   - Độ mới tin đăng / Recency (10%)
-3. Trả về danh sách Top-K có tính toán điểm tương đồng (Similarity Score) cùng thống kê trung vị giá & đơn giá.
+Heuristic retrieval cho các listing có đặc điểm gần với input:
+1. Lọc theo loại hình, khu vực, diện tích và thời điểm định giá.
+2. Xếp hạng bằng khoảng cách diện tích, GPS, kết cấu, CBD và recency.
+3. Trả về Top-K listing để làm evidence, không phải estimator thứ hai.
+
+Các trọng số trong prototype được cấu hình thủ công; chúng không phải hệ số
+thẩm định được học hoặc được chứng minh bởi một chuẩn định giá bên ngoài.
 """
 
 from typing import Any
@@ -51,7 +48,7 @@ def find_comparables(
         model_package: Gói mô hình (chứa danh sách `reference_listings`).
         values: Thuộc tính của bất động sản cần tra cứu.
         n_matches: Số lượng bất động sản tương đồng cần trích xuất.
-        context: Gói ComparableContext chuẩn hóa quy mô (nếu None sẽ lấy từ model_package).
+        context: Tham số chuẩn hóa (nếu None sẽ lấy từ model_package).
 
     Returns:
         Tuple gồm danh sách các bất động sản tương đồng và thống kê trung vị (giá, đơn giá).
@@ -208,7 +205,7 @@ def find_comparables(
         else:
             recency_dist = 0.2
 
-        # Tổng hợp khoảng cách đa chiều có trọng số miền bất động sản (6 thành phần chuẩn hóa)
+        # Trọng số heuristic cố định cho prototype, không phải hệ số appraisal.
         dist = (
             0.30 * area_dist
             + 0.25 * geo_dist

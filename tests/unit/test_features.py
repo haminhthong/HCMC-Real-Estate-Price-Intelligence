@@ -1,6 +1,7 @@
 """Kiểm thử đơn vị cho mô-đun Features và FeatureContext."""
 
 import pandas as pd
+
 from src.features.context import FeatureContext
 from src.features.geospatial import calculate_distance_to_cbd
 from src.features.text import add_text_flags
@@ -36,8 +37,8 @@ def test_feature_context_serialization():
 
 
 def test_as_of_date_and_missing_indicators():
-    from src.features.builder import build_features
     from src.config import MISSING_INDICATOR_FEATURES
+    from src.features.builder import build_features
 
     ctx = FeatureContext(
         reference_date="2025-01-01T00:00:00",

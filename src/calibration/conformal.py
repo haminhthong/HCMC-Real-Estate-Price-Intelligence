@@ -46,7 +46,7 @@ def calibrate_conformal(
     """Thực hiện hiệu chuẩn Conformal Prediction Interval trên tập Calibration (10%).
 
     NGUYÊN TẮC:
-    1. Chỉ chạy trên tập Calibration sau khi mô hình Champion đã hoàn thành Phase B Refit.
+    1. Chạy trên tập Calibration sau khi champion đã được refit.
     2. Phần dư được tính toán trong không gian log-target: e_i = |y_i - y_hat_i|.
     3. Trả về giá trị `residual_log_quantile` phục vụ thiết lập cận trên/dưới.
     """

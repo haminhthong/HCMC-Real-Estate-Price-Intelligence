@@ -98,7 +98,7 @@ def evaluate_comparables_on_validation(
         actuals.append(actual_price)
         naive_preds.append(train_median_price)
 
-        # Segment baseline prediction
+        # Dự báo cơ sở bằng trung vị của phân khúc.
         p_type = val_row.get("Property Type")
         loc_area = val_row.get("location_area")
         area = float(val_row.get("Area", 80.0))
@@ -109,7 +109,7 @@ def evaluate_comparables_on_validation(
             seg_pred = train_median_price
         segment_preds.append(seg_pred)
 
-        # Comparable Engine prediction
+        # Ước lượng bằng trung vị giá các tin tương đồng để đối chiếu.
         query_val = val_row.to_dict()
         # Định giá tại ngày của validation listing để engine chỉ nhìn lịch sử.
         query_val["as_of_date"] = val_row.get("listing_date")

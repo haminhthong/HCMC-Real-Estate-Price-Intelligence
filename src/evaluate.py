@@ -8,7 +8,7 @@ from src.evaluation.report import format_evaluation_summary
 
 
 def main() -> None:
-    """Đọc metrics hiện hành và in tóm tắt generalization performance."""
+    """Đọc các chỉ số hiện hành và in kết quả đánh giá trên tập kiểm tra."""
     if not METRICS_PATH.exists():
         raise SystemExit("Chưa có báo cáo. Hãy chạy: python -m src.pipeline train")
 

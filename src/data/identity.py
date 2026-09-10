@@ -1,8 +1,8 @@
-"""Resolve repeated listings that likely refer to the same physical property.
+"""Nhận diện các tin đăng có khả năng cùng nói về một bất động sản.
 
-Strong and medium matches may be grouped into ``property_group_id``. Weak
-matches are only flagged for review so that similar listings are not merged
-aggressively. Each listing event keeps its own date and price.
+Các cặp khớp mạnh hoặc trung bình có thể chung ``property_group_id``. Cặp khớp
+yếu chỉ được đánh dấu để kiểm tra, tránh gộp nhầm các căn nhà tương tự nhau.
+Mỗi lần đăng vẫn giữ ngày và giá riêng.
 """
 
 from typing import Any
@@ -14,7 +14,7 @@ from .geo import _normalize_text, extract_area
 
 
 class UnionFind:
-    """Cấu trúc dữ liệu Disjoint-Set Union với Path Compression và Union by Rank."""
+    """Quản lý nhóm rời nhau bằng nén đường đi và hợp nhất theo hạng."""
 
     def __init__(self, size: int) -> None:
         self.parent = list(range(size))
@@ -85,7 +85,7 @@ def make_property_signature(df: pd.DataFrame) -> pd.Series:
 
 
 def _identity_value(row: pd.Series, column: str, default: Any = np.nan) -> Any:
-    """Đọc một thuộc tính identity mà không lỗi khi cột bị thiếu."""
+    """Đọc thuộc tính nhận diện, cho phép cột bị thiếu."""
     return row.get(column, default)
 
 
@@ -118,7 +118,7 @@ def _compatible_structure(left: pd.Series, right: pd.Series) -> bool:
 
 
 def _gps_distance_m(left: pd.Series, right: pd.Series) -> float | None:
-    """Tính khoảng cách GPS để chặn merge nhầm hai địa chỉ trùng tên."""
+    """Tính khoảng cách GPS để tránh gộp nhầm hai địa chỉ trùng tên."""
     values = [
         _identity_value(left, "Latitude"),
         _identity_value(left, "Longitude"),
@@ -139,7 +139,7 @@ def _gps_distance_m(left: pd.Series, right: pd.Series) -> float | None:
 
 
 def _listing_key(row: pd.Series) -> tuple[str, str] | None:
-    """Khóa listing cấp nguồn; cùng khóa là cùng listing event."""
+    """Tạo khóa tin đăng từ mã nguồn và mã tin của nguồn."""
     source = row.get("source_id", row.get("Source ID", "default"))
     listing_id = row.get("source_listing_id", row.get("Listing ID"))
     if pd.isna(listing_id) or str(listing_id).strip() == "":
@@ -148,7 +148,7 @@ def _listing_key(row: pd.Series) -> tuple[str, str] | None:
 
 
 def _location_components(row: pd.Series) -> tuple[str, str, str]:
-    """Lấy area/ward/street bảo thủ từ địa chỉ thô, không tự bịa tọa độ."""
+    """Trích khu vực, phường và đường từ địa chỉ thô khi có đủ thông tin."""
     location = _normalize_text(row.get("Location", ""))
     area = _normalize_text(row.get("location_area", "")) or _normalize_text(
         extract_area(location)
@@ -160,7 +160,7 @@ def _location_components(row: pd.Series) -> tuple[str, str, str]:
 
 
 def _match_level(left: pd.Series, right: pd.Series) -> str | None:
-    """Phân loại cặp ứng viên theo Strong/Medium/Weak."""
+    """Phân loại cặp tin theo mức khớp mạnh, trung bình hoặc yếu."""
     left_type = _normalize_text(left.get("Property Type", ""))
     right_type = _normalize_text(right.get("Property Type", ""))
     if not left_type or left_type != right_type:
@@ -182,7 +182,7 @@ def _match_level(left: pd.Series, right: pd.Series) -> str | None:
     gps_distance = _gps_distance_m(left, right)
     structure_ok = _compatible_structure(left, right)
 
-    # Strong: địa chỉ chuẩn hóa + loại hình + diện tích gần, không mâu thuẫn.
+    # Khớp mạnh: cùng địa chỉ chuẩn hóa, loại hình và diện tích gần nhau.
     if (
         left_location == right_location
         and area_delta <= 0.03
@@ -200,11 +200,11 @@ def _match_level(left: pd.Series, right: pd.Series) -> str | None:
         and left_ward == right_ward
         and (not left_street or not right_street or left_street == right_street)
     )
-    # Medium chỉ union khi không có GPS và có thêm ward/street tương thích.
+    # Khớp trung bình: thiếu GPS nhưng có phường hoặc đường tương thích.
     if gps_distance is None and same_locality and area_delta <= 0.05 and structure_ok:
         return "medium"
 
-    # Weak chỉ được audit, tuyệt đối không union.
+    # Khớp yếu chỉ được ghi nhận để kiểm tra, không hợp nhất nhóm.
     if left_area_key and left_area_key == right_area_key and area_delta <= 0.10:
         return "weak"
     return None
@@ -213,7 +213,7 @@ def _match_level(left: pd.Series, right: pd.Series) -> str | None:
 def resolve_property_identities(
     df: pd.DataFrame,
 ) -> tuple[pd.DataFrame, dict[str, Any]]:
-    """Resolve identity bảo thủ và ghi nhận weak duplicate để audit.
+    """Nhận diện bất động sản thận trọng và ghi nhận cặp khớp yếu để kiểm tra.
 
     ``property_group_id`` là identity của property vật lý; ngày/giá vẫn được
     giữ ở từng listing event và không bị gộp thành một quan sát duy nhất.
@@ -238,7 +238,7 @@ def resolve_property_identities(
     union_levels: dict[tuple[int, int], str] = {}
     weak_pairs: set[tuple[int, int]] = set()
 
-    # Block theo loại hình, khu vực và bucket diện tích; mở rộng thêm bucket kế bên.
+    # Giới hạn cặp so sánh theo loại hình, khu vực và các khoảng diện tích kề nhau.
     blocks: dict[tuple[str, str, int], list[int]] = {}
     for index, row in out.iterrows():
         property_type = _normalize_text(row.get("Property Type", ""))
@@ -256,7 +256,7 @@ def resolve_property_identities(
                 (property_type, area_name, neighbor_bucket), []
             ).extend(indices)
 
-    # Level A: cùng source + source listing id.
+    # Cùng nguồn dữ liệu và mã tin đăng của nguồn.
     listing_keys: dict[tuple[str, str], int] = {}
     for index, row in out.iterrows():
         key = _listing_key(row)

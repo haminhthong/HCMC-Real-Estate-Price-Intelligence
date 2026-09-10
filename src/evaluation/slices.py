@@ -80,7 +80,7 @@ def analyze_slices(
     else:
         test_result["distance_to_cbd_km"] = 10.0
 
-    # Phân vị tầm giá theo đề xuất chuẩn: < 5B, 5 - 10B, 10 - 15B, > 15B
+    # Các khoảng giá cố định theo tỷ VND; đây không phải phân vị của dữ liệu.
     price_bins = [0, 5000, 10000, 15000, np.inf]
     price_labels = ["< 5 tỷ", "5 - 10 tỷ", "10 - 15 tỷ", "> 15 tỷ"]
     test_result["price_range"] = pd.cut(

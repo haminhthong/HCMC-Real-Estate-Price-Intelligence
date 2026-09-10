@@ -1,6 +1,7 @@
-"""Các hàm serving cho dự báo, giải thích và comparable listings."""
+"""Các hàm dự báo, giải thích và tìm tin đăng tương đồng."""
 
-from .comparables import find_comparables
+from src.comparables import find_comparables
+
 from .explain import explain_top_features, friendly_feature_name
 from .predictor import predict_one
 

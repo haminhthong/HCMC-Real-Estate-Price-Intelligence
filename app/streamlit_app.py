@@ -194,7 +194,7 @@ with tab_predict:
             res_c2.metric(
                 label="Khoảng Dự Báo (Prediction Interval 80%)",
                 value=f"{lower_billion:,.2f} – {upper_billion:,.2f} tỷ",
-                help="Khoảng dự báo bao phủ 80% trường hợp thực tế nhờ Split Conformal Residuals.",
+                help="Mức bao phủ mục tiêu là 80%; mức thực tế được đo trên tập kiểm tra.",
             )
 
             res_c3.metric(

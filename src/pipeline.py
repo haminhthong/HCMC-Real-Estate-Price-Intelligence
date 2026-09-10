@@ -30,10 +30,10 @@ def run_pipeline(
     """Chạy pipeline từ dữ liệu thô đến model, báo cáo và artifact hiện hành."""
     logger.info("Bắt đầu pipeline giá bất động sản TP.HCM")
 
-    # 1. DATA INGESTION
+    # Nạp dữ liệu thô.
     raw_df = load_raw_dataset(data_path)
 
-    # 2. DATA QUALITY & PROPERTY IDENTITY & LISTING DEDUPLICATION
+    # Kiểm tra dữ liệu, nhận diện bất động sản và loại tin đăng trùng.
     clean_df = clean_data(raw_df)
     audit_stats = getattr(clean_df, "attrs", {}).get("data_audit", {})
 
@@ -42,7 +42,7 @@ def run_pipeline(
             "Số lượng mẫu hợp lệ sau làm sạch quá nhỏ (< 50) để chia 4 tập."
         )
 
-    # 3. CANONICAL GROUPED TEMPORAL SPLIT (60 / 15 / 10 / 15)
+    # Chia nhóm bất động sản theo thời gian với tỷ lệ 60 / 15 / 10 / 15.
     train_idx, val_idx, calib_idx, test_idx = split_group_indices(clean_df)
     logger.info(
         "Grouped Temporal Split hoàn tất: Train=%d, Validation=%d, Calibration=%d, Test=%d.",
@@ -57,12 +57,12 @@ def run_pipeline(
     df_calib = clean_df.iloc[calib_idx].copy()
     df_test = clean_df.iloc[test_idx].copy()
 
-    # 6. Chọn model và target trên Train -> Validation.
+    # Chọn mô hình và biến mục tiêu bằng tập xác thực.
     selection_result = select_champion_model(df_train=df_train, df_val=df_val)
     selected_model_name = selection_result["selected_model_name"]
     selected_target_fmt = selection_result["selected_target_fmt"]
 
-    # 7. Refit champion trên Train + Validation.
+    # Huấn luyện lại mô hình được chọn trên tập huấn luyện và xác thực gộp.
     refit_result = refit_champion_model(
         df_train=df_train,
         df_val=df_val,
@@ -72,7 +72,7 @@ def run_pipeline(
     champion_pipeline = refit_result["champion_pipeline"]
     final_feature_context = refit_result["final_feature_context"]
 
-    # 8. CONFORMAL CALIBRATION (Calibration 10% với model đã refit)
+    # Hiệu chuẩn khoảng dự báo trên tập riêng chiếm khoảng 10% số nhóm.
     features_calib = build_features(df_calib, context=final_feature_context)
     calibration_result = calibrate_conformal(
         model_pipeline=champion_pipeline,
@@ -82,7 +82,7 @@ def run_pipeline(
         target_coverage=0.8,
     )
 
-    # 9. INDEPENDENT EVALUATION (Test 15% - Champion vs Baselines ONLY)
+    # Đánh giá mô hình được chọn và các mô hình cơ sở trên tập kiểm tra.
     features_test = build_features(df_test, context=final_feature_context)
     evaluation_result = evaluate_champion_on_test(
         champion_pipeline=champion_pipeline,
@@ -98,7 +98,7 @@ def run_pipeline(
     champion_metrics = evaluation_result["champion_metrics"]
     int_metrics = evaluation_result["interval_metrics"]
 
-    # 11. COMPARABLE ENGINE CONTEXT & OFFLINE VALIDATION BENCHMARK
+    # Chuẩn bị dữ liệu tham chiếu và đánh giá tin đăng tương đồng.
     from src.comparables import ComparableContext, evaluate_comparables_on_validation
 
     ref_df = refit_result["df_train_dev"].copy()
@@ -111,7 +111,7 @@ def run_pipeline(
     benchmark_context = ComparableContext.fit(df_train)
     comparable_context = ComparableContext.fit(ref_df)
 
-    # Đánh giá ngoại suy định giá của Comparable Engine trên Validation set (Train comps ONLY)
+    # Đánh giá trên tập xác thực, chỉ lấy tin tham chiếu từ tập huấn luyện.
     comp_eval_result = evaluate_comparables_on_validation(
         df_train=df_train,
         df_val=df_val,
@@ -122,7 +122,7 @@ def run_pipeline(
         "Comparable Engine Validation Benchmark: %s", comp_eval_result["summary"]
     )
 
-    # 12. DATA SUMMARY: mô tả dữ liệu, split và provenance của lần chạy.
+    # Tổng hợp dữ liệu, cách chia tập và nguồn dữ liệu của lần chạy.
     def date_range(frame: Any) -> tuple[str, str]:
         if frame["listing_date"].notna().any():
             return (
@@ -213,7 +213,7 @@ def run_pipeline(
         }
     )
 
-    # 13. Ghi artifact phẳng và báo cáo hiện hành.
+    # Lưu mô hình, dữ liệu phục vụ dự báo và báo cáo hiện hành.
     artifact_paths = save_model_artifacts(
         model_version=model_version,
         pipeline=champion_pipeline,

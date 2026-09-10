@@ -1,4 +1,4 @@
-"""Dự báo giá và lấy comparable listings cho một bất động sản."""
+"""Dự báo giá và lấy các tin đăng tương đồng cho một bất động sản."""
 
 from datetime import datetime
 from typing import Any
@@ -42,7 +42,7 @@ def predict_one(
     include_explanation: bool = False,
     model_package: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
-    """Trả về giá điểm, khoảng conformal, cảnh báo và comparable listings."""
+    """Trả về giá điểm, khoảng conformal, cảnh báo và tin đăng tương đồng."""
     if model_package is None:
         model_package = load_model()
 

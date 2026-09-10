@@ -1,4 +1,4 @@
-"""Group-isolated temporal split duy nhất của project."""
+"""Chia dữ liệu theo thời gian, giữ mỗi nhóm bất động sản trong một tập."""
 
 import numpy as np
 import pandas as pd

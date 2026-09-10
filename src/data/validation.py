@@ -3,11 +3,6 @@
 import numpy as np
 import pandas as pd
 
-# Giữ tên hằng số để không phá import cũ. Hằng số này không còn được dùng để
-# lấp ngày thiếu: ngày không biết phải được giữ là NaT, không được biến thành
-# một listing mới nhất giả tạo.
-CRAWL_DATE: pd.Timestamp | None = None
-
 NUMERIC_COLUMNS: list[str] = [
     "Price",
     "Area",

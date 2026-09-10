@@ -16,10 +16,9 @@ from .identity import assign_property_group, make_property_signature
 from .loader import load_raw_dataset
 from .schema import REQUIRED_RAW_COLUMNS, PropertyRecord, validate_raw_schema
 from .split import split_group_indices
-from .validation import CRAWL_DATE, filter_numeric_outliers, parse_listing_dates
+from .validation import filter_numeric_outliers, parse_listing_dates
 
 __all__ = [
-    "CRAWL_DATE",
     "REQUIRED_RAW_COLUMNS",
     "PropertyRecord",
     "assign_property_group",

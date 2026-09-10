@@ -87,7 +87,7 @@ class ComparableProperty(BaseModel):
 
 
 class PredictionResponse(BaseModel):
-    """Response ngắn gọn tập trung vào giá, uncertainty và evidence."""
+    """Kết quả gồm giá dự báo, khoảng bất định và tin đăng tham chiếu."""
 
     predicted_price_million: float
     prediction_interval: PredictionInterval
@@ -117,7 +117,7 @@ def health() -> dict[str, Any]:
     summary="Ước lượng giá niêm yết",
 )
 def predict(request: PredictionRequest) -> dict[str, Any]:
-    """Trả về point estimate, conformal interval, warnings và comparables."""
+    """Trả về giá điểm, khoảng conformal, cảnh báo và tin đăng tương đồng."""
     try:
         payload = request.model_dump(by_alias=True)
         include_explanation = payload.pop("include_explanation", False)

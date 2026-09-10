@@ -271,7 +271,9 @@ bao lâu; `warnings` vẫn là cảnh báo cụ thể, không gom thành reliabi
 ```
 
 Response thực tế có thể thay đổi theo input và artifact được train gần nhất.
-`top_contributions` chỉ có dữ liệu khi request bật `include_explanation`.
+`top_contributions` chỉ có dữ liệu khi request bật `include_explanation`, mô hình
+được chọn là mô hình cây và môi trường có SHAP. Trường hợp còn lại trả danh sách
+rỗng; độ quan trọng toàn cục không thay thế giải thích từng dự báo.
 
 ## Cấu trúc thư mục
 
@@ -312,7 +314,6 @@ hcmc-real-estate-price-intelligence/
 │   ├── serving/
 │   │   ├── predictor.py
 │   │   ├── input_validation.py
-│   │   ├── comparables.py
 │   │   └── explain.py
 │   ├── artifacts/
 │   │   ├── loader.py

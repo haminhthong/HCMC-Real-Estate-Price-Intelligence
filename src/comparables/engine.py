@@ -1,9 +1,9 @@
 """Động cơ tra cứu bất động sản tương đồng đa chiều (Comparable Properties Engine).
 
-Heuristic retrieval cho các listing có đặc điểm gần với input:
+Tra cứu bằng quy tắc thủ công các tin đăng có đặc điểm gần với đầu vào:
 1. Lọc theo loại hình, khu vực, diện tích và thời điểm định giá.
 2. Xếp hạng bằng khoảng cách diện tích, GPS, kết cấu, CBD và recency.
-3. Trả về Top-K listing để làm evidence, không phải estimator thứ hai.
+3. Trả về các tin gần nhất làm thông tin tham chiếu cho dự báo.
 
 Các trọng số trong prototype được cấu hình thủ công; chúng không phải hệ số
 thẩm định được học hoặc được chứng minh bởi một chuẩn định giá bên ngoài.
@@ -98,7 +98,7 @@ def find_comparables(
             return True
         return bool(pd.notna(reference_date) and reference_date <= valuation_date)
 
-    # 1. Chặn future leakage và loại ngày unknown trước khi tính similarity.
+    # Lọc tin tương lai và tin thiếu ngày khi truy vấn có mốc định giá.
     dated_candidates = [
         r
         for r in references
@@ -143,7 +143,7 @@ def find_comparables(
             )
         ]
 
-    # Không fallback về listing tương lai hoặc chính property đang định giá.
+    # Không lấy tin tương lai hoặc chính bất động sản đang định giá để bù số lượng.
     if not candidates:
         return [], {"median_price_million": None, "median_unit_price_million_m2": None}
 
@@ -172,7 +172,7 @@ def find_comparables(
             raw_km = haversine_km(target_lat, target_lon, c_lat, c_lon)
             geo_dist = min(raw_km / 5.0, 2.0)
         else:
-            # Fallback nếu thiếu GPS: nếu cùng quận thì phạt nhẹ 0.15, khác quận phạt 0.8
+            # Khi thiếu GPS, dùng mức phạt 0.15 cho cùng quận và 0.8 cho khác quận.
             geo_dist = 0.15 if c.get("location_area") == target_area_name else 0.8
 
         # c) Khoảng cách kết cấu phòng ngủ & phòng vệ sinh
@@ -205,7 +205,7 @@ def find_comparables(
         else:
             recency_dist = 0.2
 
-        # Trọng số heuristic cố định cho prototype, không phải hệ số appraisal.
+        # Trọng số thủ công của bản thử nghiệm, chưa được kiểm định cho thẩm định giá.
         dist = (
             0.30 * area_dist
             + 0.25 * geo_dist

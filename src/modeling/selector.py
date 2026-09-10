@@ -4,7 +4,6 @@ from typing import Any
 
 import numpy as np
 import pandas as pd
-from sklearn.pipeline import Pipeline
 
 from src.config import logger
 from src.evaluation.metrics import regression_metrics
@@ -41,7 +40,6 @@ def select_champion_model(
     validation_benchmarks: dict[str, dict[str, dict[str, float]]] = {
         fmt: {} for fmt in TARGET_FORMULATIONS
     }
-    fitted_selection_pipes: dict[tuple[str, str], Pipeline] = {}
 
     for fmt in TARGET_FORMULATIONS:
         if fmt == "total_price":
@@ -51,7 +49,6 @@ def select_champion_model(
 
         for m_name in CANDIDATE_MODELS:
             pipe = build_pipeline(m_name).fit(features_train, y_train)
-            fitted_selection_pipes[(fmt, m_name)] = pipe
 
             val_raw_pred = pipe.predict(features_val)
             if fmt == "price_per_m2":
@@ -104,7 +101,6 @@ def select_champion_model(
         "naive_val_mae": naive_val_mae,
         # Báo cáo giữ nguyên metric Validation đã dùng để chọn champion.
         "selected_validation_metrics": selected_validation_metrics,
-        "best_candidate_metrics": selected_validation_metrics,
         "validation_benchmarks": validation_benchmarks,
         "reference_date_selection": feature_ctx.reference_date,
     }

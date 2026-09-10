@@ -53,21 +53,19 @@ def explain_top_features(
     feature_names = preprocessor.get_feature_names_out()
     model = pipeline.named_steps["model"]
 
+    # Chỉ hỗ trợ giải thích mô hình cây; mô hình tuyến tính và cơ sở trả rỗng.
+    if not hasattr(model, "feature_importances_"):
+        return []
+
     try:
         import shap
 
         explainer = shap.TreeExplainer(model)
         shap_values = explainer.shap_values(transformed)
         scores = np.asarray(shap_values)[0]
-        score_name = "shap_value"
     except ImportError:
-        # SHAP là dependency tùy chọn. Khi runtime tối giản không có SHAP,
-        # dùng feature_importances_ của tree model làm giải thích xấp xỉ và
-        # ghi rõ tên trường để không giả mạo đây là SHAP value.
-        if not hasattr(model, "feature_importances_"):
-            return []
-        scores = np.asarray(model.feature_importances_, dtype=float)
-        score_name = "feature_importance"
+        # Thiếu SHAP thì không có giải thích cục bộ cho lần dự báo này.
+        return []
 
     top_indices = np.argsort(np.abs(scores))[-5:][::-1]
 
@@ -75,7 +73,7 @@ def explain_top_features(
         {
             "feature": str(feature_names[index]),
             "friendly_name": friendly_feature_name(str(feature_names[index])),
-            score_name: round(float(scores[index]), 4),
+            "shap_value": round(float(scores[index]), 4),
         }
         for index in top_indices
     ]

@@ -12,6 +12,7 @@ from src.comparables import find_comparables
 from src.config import MAX_AREA_M2, MIN_AREA_M2
 from src.features.builder import build_features
 from src.features.context import FeatureContext
+from src.features.structural import QUALITY_COLUMNS
 
 from .explain import explain_top_features
 from .input_validation import build_prediction_warnings, validate_supported_input
@@ -99,8 +100,16 @@ def predict_one(
         as_of_date=as_of_date,
     )
 
+    missing_fields = [
+        col
+        for col in QUALITY_COLUMNS
+        if pd.isna(row.iloc[0].get(col))
+        or row.iloc[0].get(col) == "Không rõ"
+        or str(row.iloc[0].get(col)).strip() == ""
+    ]
+
     comparable_values = {**values, "as_of_date": as_of_date}
-    comparables, _summary = find_comparables(
+    comparables, comparable_summary = find_comparables(
         model_package, comparable_values, n_matches=4
     )
     should_explain = include_explanation or values.get("include_explanation", False)
@@ -116,6 +125,11 @@ def predict_one(
             "coverage": target_coverage,
         },
         "comparables": comparables,
+        "comparable_summary": comparable_summary,
+        "input_quality": {
+            "completeness_score": round(completeness, 1),
+            "missing_fields": missing_fields,
+        },
         "warnings": warnings,
         "as_of_date": as_of_date,
         "market_reference_date": market_reference_date,

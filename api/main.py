@@ -101,12 +101,28 @@ class ComparableProperty(BaseModel):
     similarity_score: float = 1.0
 
 
+class ComparableSummary(BaseModel):
+    """Thống kê trung vị từ các listing tương đồng."""
+
+    median_price_million: float | None = None
+    median_unit_price_million_m2: float | None = None
+
+
+class InputQuality(BaseModel):
+    """Chất lượng và độ hoàn thiện thông tin đầu vào."""
+
+    completeness_score: float
+    missing_fields: list[str] = Field(default_factory=list)
+
+
 class PredictionResponse(BaseModel):
     """Kết quả gồm giá dự báo, khoảng bất định và tin đăng tham chiếu."""
 
     predicted_price_million: float
     prediction_interval: PredictionInterval
     comparables: list[ComparableProperty] = Field(default_factory=list)
+    comparable_summary: ComparableSummary | None = None
+    input_quality: InputQuality | None = None
     warnings: list[str] = Field(default_factory=list)
     as_of_date: str
     market_reference_date: str | None = None

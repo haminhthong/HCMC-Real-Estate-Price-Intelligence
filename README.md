@@ -412,12 +412,21 @@ python -m streamlit run app/streamlit_app.py
 - API contract: `GET /health`, `POST /predict`
 - Dashboard: <http://127.0.0.1:8501>
 
-Ví dụ request:
+### Cấu trúc Property Price Intelligence Console (Streamlit)
+
+Giao diện Streamlit được thiết kế theo mô hình bảng điều khiển hỗ trợ ra quyết định gồm 4 tab chuyên sâu:
+
+1. **Price Estimate**: Nhập thông tin BĐS (phân nhóm Property, Location, Features & Timing), hỗ trợ chọn thời điểm định giá (`as_of_date`) và tọa độ GPS tùy chọn. Hiển thị 4 KPI cards (Giá ước tính, Khoảng conformal 80%, Đơn giá tr/m², Độ tuổi dữ liệu tham chiếu), thanh trực quan khoảng bất định, thanh đo độ đầy đủ input và hệ thống thẻ cảnh báo (Warning Panel).
+2. **Comparable Evidence**: Hiển thị bảng đối so sánh giữa ước lượng của mô hình ML và trung vị các tin đăng tương đồng (`comparable_summary`), kèm các thẻ tin đăng tương đồng (Top 4 matches) với độ tương đồng, cự ly CBD và ngày đăng tin.
+3. **Why This Estimate?**: Giải thích các yếu tố đóng góp theo thuật toán SHAP cục bộ với nhãn tiếng Việt và chiều hướng tác động (↑/↓), kèm khuyến cáo rõ ràng: SHAP chỉ phản ánh tương quan thống kê trong mô hình cây, không phải quan hệ nhân quả ngoài đời thực.
+4. **Model & Data**: Công khai minh bạch cấu hình mô hình (ExtraTrees v1.2.0), bảng so sánh hiệu năng trên tập test độc lập với các baselines, chất lượng khoảng bao phủ conformal (80% target vs 72.7% observed), sơ đồ temporal split protocol và các giới hạn phạm vi nghiên cứu.
+
+Ví dụ request API:
 
 ```powershell
 curl -X POST http://127.0.0.1:8000/predict `
   -H "Content-Type: application/json" `
-  -d '{"Property Type":"Nhà riêng","location_area":"Quận 1","Area":75,"Bedrooms":3}'
+  -d '{"Property Type":"Nhà riêng","location_area":"Quận 1","Area":75,"Bedrooms":3,"as_of_date":"2026-09-10"}'
 ```
 
 ### Docker

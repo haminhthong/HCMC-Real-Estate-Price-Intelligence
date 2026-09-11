@@ -101,6 +101,9 @@ def test_real_prediction_returns_interval_and_comparables(api_client: TestClient
         >= data["prediction_interval"]["lower_million"]
     )
     assert len(data["comparables"]) >= 1
+    assert "comparable_summary" in data
+    assert "input_quality" in data
+    assert data["input_quality"]["completeness_score"] > 0
 
 
 def test_unknown_endpoint_returns_404(api_client: TestClient):

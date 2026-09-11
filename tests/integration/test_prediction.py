@@ -32,6 +32,10 @@ def test_real_model_prediction_schema():
         >= result["prediction_interval"]["lower_million"]
     )
     assert result["top_contributions"] == []
+    assert "comparable_summary" in result
+    assert "input_quality" in result
+    assert "completeness_score" in result["input_quality"]
+    assert isinstance(result["input_quality"]["missing_fields"], list)
 
 
 def test_prediction_response_is_strict_json_serializable():

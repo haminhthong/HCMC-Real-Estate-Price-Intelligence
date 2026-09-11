@@ -1,10 +1,14 @@
-"""Kiểm thử đơn vị cho mô-đun Features và FeatureContext."""
+"""Kiểm thử đơn vị cho mô-đun Features, FeatureContext và Pipeline Preprocessing."""
 
+import numpy as np
 import pandas as pd
 
+from src.config import MISSING_INDICATOR_FEATURES, MODEL_FEATURES
+from src.features.builder import build_features
 from src.features.context import FeatureContext
 from src.features.geospatial import calculate_distance_to_cbd
 from src.features.text import add_text_flags
+from src.modeling.pipelines import build_pipeline
 
 
 def test_distance_to_cbd_calculation():
@@ -37,9 +41,6 @@ def test_feature_context_serialization():
 
 
 def test_as_of_date_and_missing_indicators():
-    from src.config import MISSING_INDICATOR_FEATURES
-    from src.features.builder import build_features
-
     ctx = FeatureContext(
         reference_date="2025-01-01T00:00:00",
         missing_indicator_features=list(MISSING_INDICATOR_FEATURES),
@@ -62,3 +63,28 @@ def test_as_of_date_and_missing_indicators():
     assert feats["length_missing"].iloc[0] == 1
     assert feats["bedrooms_missing"].iloc[0] == 1
     assert feats["bathrooms_missing"].iloc[0] == 1
+
+
+def test_target_is_not_a_feature(sample_raw_dataframe):
+    features = build_features(sample_raw_dataframe)
+    assert "Price" not in features.columns
+    assert list(features.columns) == MODEL_FEATURES
+
+
+def test_preprocessing_has_no_nonfinite_values(sample_raw_dataframe):
+    features = build_features(sample_raw_dataframe)
+    transformed = build_pipeline().named_steps["preprocessor"].fit_transform(features)
+    assert np.isfinite(transformed).all()
+
+
+def test_feature_count_is_stable_after_transform(sample_raw_dataframe):
+    features = build_features(sample_raw_dataframe)
+    prep = build_pipeline().named_steps["preprocessor"].fit(features)
+    assert prep.transform(features).shape[1] == len(prep.get_feature_names_out())
+
+
+def test_supplied_amenities_are_not_overwritten():
+    frame = pd.DataFrame([{"has_furniture": True, "car_alley": True}])
+    features = build_features(frame)
+    assert features.loc[0, "has_furniture"] == 1
+    assert features.loc[0, "car_alley"] == 1

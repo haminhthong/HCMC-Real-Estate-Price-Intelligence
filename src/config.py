@@ -137,3 +137,32 @@ MISSING_INDICATOR_FEATURES: list[str] = [
 MODEL_FEATURES: list[str] = (
     NUMERIC_FEATURES + CATEGORICAL_FEATURES + FLAG_FEATURES + MISSING_INDICATOR_FEATURES
 )
+
+# ---------------------------------------------------------------------------
+# Ngưỡng giới hạn dữ liệu đầu vào (Input Boundaries & Constraints)
+# Nguồn sự thật duy nhất cho validation, API schema và serving.
+# ---------------------------------------------------------------------------
+MIN_PRICE_MILLION: float = 100.0
+MAX_PRICE_MILLION: float = 50_000.0
+MIN_AREA_M2: float = 5.0
+MAX_AREA_M2: float = 500.0
+MIN_UNIT_PRICE_MILLION_M2: float = 10.0
+
+MIN_BEDROOMS: int = 1
+MAX_BEDROOMS: int = 10
+MIN_BATHROOMS: int = 0
+MAX_BATHROOMS: int = 20
+MIN_FLOORS: int = 0
+MAX_FLOORS: int = 100
+
+MIN_WIDTH_M: float = 0.1
+MAX_WIDTH_M: float = 100.0
+MIN_LENGTH_M: float = 0.1
+MAX_LENGTH_M: float = 200.0
+MIN_ALLEY_WIDTH_M: float = 0.0
+MAX_ALLEY_WIDTH_M: float = 30.0
+
+MIN_LATITUDE: float = 10.3
+MAX_LATITUDE: float = 11.2
+MIN_LONGITUDE: float = 106.3
+MAX_LONGITUDE: float = 107.0

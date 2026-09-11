@@ -37,10 +37,23 @@ def evaluate_comparables_on_validation(
 
     # Chuẩn bị reference listings từ tập Train
     references = []
-    for _, row in df_train.iterrows():
-        area = float(row["Area"]) if pd.notna(row.get("Area")) else None
-        price = float(row["Price"]) if pd.notna(row.get("Price")) else None
-        unit_p = round(price / area, 2) if price and area and area > 0 else None
+    for row in df_train.to_dict(orient="records"):
+        area_raw = row.get("Area")
+        price_raw = row.get("Price")
+        area = float(area_raw) if pd.notna(area_raw) else None
+        price = float(price_raw) if pd.notna(price_raw) else None
+        unit_p = (
+            round(price / area, 2)
+            if price is not None and area is not None and area > 0
+            else None
+        )
+        beds_raw = row.get("Bedrooms")
+        baths_raw = row.get("Bathrooms")
+        floors_raw = row.get("Floors")
+        lat_raw = row.get("Latitude")
+        lon_raw = row.get("Longitude")
+        cbd_raw = row.get("distance_to_cbd_km")
+        date_raw = row.get("listing_date")
         references.append(
             {
                 "listing_id": row.get("Listing ID"),
@@ -48,27 +61,15 @@ def evaluate_comparables_on_validation(
                 "property_type": row.get("Property Type"),
                 "location_area": row.get("location_area"),
                 "area": area,
-                "bedrooms": float(row["Bedrooms"])
-                if pd.notna(row.get("Bedrooms"))
-                else None,
-                "bathrooms": float(row["Bathrooms"])
-                if pd.notna(row.get("Bathrooms"))
-                else None,
-                "floors": float(row["Floors"]) if pd.notna(row.get("Floors")) else None,
+                "bedrooms": float(beds_raw) if pd.notna(beds_raw) else None,
+                "bathrooms": float(baths_raw) if pd.notna(baths_raw) else None,
+                "floors": float(floors_raw) if pd.notna(floors_raw) else None,
                 "price_million": price,
                 "unit_price_million_m2": unit_p,
-                "latitude": float(row["Latitude"])
-                if pd.notna(row.get("Latitude"))
-                else None,
-                "longitude": float(row["Longitude"])
-                if pd.notna(row.get("Longitude"))
-                else None,
-                "distance_to_cbd_km": float(row["distance_to_cbd_km"])
-                if pd.notna(row.get("distance_to_cbd_km"))
-                else None,
-                "listing_date": str(row["listing_date"])
-                if pd.notna(row.get("listing_date"))
-                else None,
+                "latitude": float(lat_raw) if pd.notna(lat_raw) else None,
+                "longitude": float(lon_raw) if pd.notna(lon_raw) else None,
+                "distance_to_cbd_km": float(cbd_raw) if pd.notna(cbd_raw) else None,
+                "listing_date": str(date_raw) if pd.notna(date_raw) else None,
             }
         )
 
@@ -93,7 +94,7 @@ def evaluate_comparables_on_validation(
     naive_preds = []
     segment_preds = []
 
-    for _, val_row in df_val.iterrows():
+    for val_row in df_val.to_dict(orient="records"):
         actual_price = float(val_row["Price"])
         actuals.append(actual_price)
         naive_preds.append(train_median_price)
@@ -110,7 +111,7 @@ def evaluate_comparables_on_validation(
         segment_preds.append(seg_pred)
 
         # Ước lượng bằng trung vị giá các tin tương đồng để đối chiếu.
-        query_val = val_row.to_dict()
+        query_val = dict(val_row)
         # Định giá tại ngày của validation listing để engine chỉ nhìn lịch sử.
         query_val["as_of_date"] = val_row.get("listing_date")
         _, summary = find_comparables(

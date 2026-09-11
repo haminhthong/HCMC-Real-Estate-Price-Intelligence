@@ -52,29 +52,19 @@ def build_features(
         out["Longitude"] if "Longitude" in out else pd.Series(np.nan, index=out.index)
     )
     out["gps_missing"] = (lat_val.isna() | lon_val.isna()).astype(int)
-    out["width_missing"] = (
-        out["Width"].isna() if "Width" in out else pd.Series(1, index=out.index)
-    ).astype(int)
-    out["length_missing"] = (
-        out["Length"].isna() if "Length" in out else pd.Series(1, index=out.index)
-    ).astype(int)
-    out["bedrooms_missing"] = (
-        out["Bedrooms"].isna() if "Bedrooms" in out else pd.Series(1, index=out.index)
-    ).astype(int)
-    out["bathrooms_missing"] = (
-        out["Bathrooms"].isna() if "Bathrooms" in out else pd.Series(1, index=out.index)
-    ).astype(int)
-    out["floors_missing"] = (
-        out["Floors"].isna() if "Floors" in out else pd.Series(1, index=out.index)
-    ).astype(int)
-    out["road_type_missing"] = (
-        out["Road Type"].isna() if "Road Type" in out else pd.Series(1, index=out.index)
-    ).astype(int)
-    out["alley_width_missing"] = (
-        out["Alley Width"].isna()
-        if "Alley Width" in out
-        else pd.Series(1, index=out.index)
-    ).astype(int)
+
+    missing_col_mapping = {
+        "Width": "width_missing",
+        "Length": "length_missing",
+        "Bedrooms": "bedrooms_missing",
+        "Bathrooms": "bathrooms_missing",
+        "Floors": "floors_missing",
+        "Road Type": "road_type_missing",
+        "Alley Width": "alley_width_missing",
+    }
+    for col, flag_name in missing_col_mapping.items():
+        series = out[col] if col in out else pd.Series(np.nan, index=out.index)
+        out[flag_name] = series.isna().astype(int)
 
     # 4. Đặc trưng thời gian và mốc định giá tham chiếu
     as_of = out.get("as_of_date")

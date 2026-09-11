@@ -6,7 +6,25 @@ from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel, ConfigDict, Field
 
 from src.artifacts.loader import load_model
-from src.config import MODEL_VERSION
+from src.config import (
+    MAX_ALLEY_WIDTH_M,
+    MAX_AREA_M2,
+    MAX_BATHROOMS,
+    MAX_BEDROOMS,
+    MAX_FLOORS,
+    MAX_LATITUDE,
+    MAX_LENGTH_M,
+    MAX_LONGITUDE,
+    MAX_WIDTH_M,
+    MIN_ALLEY_WIDTH_M,
+    MIN_AREA_M2,
+    MIN_BATHROOMS,
+    MIN_BEDROOMS,
+    MIN_FLOORS,
+    MIN_LATITUDE,
+    MIN_LONGITUDE,
+    MODEL_VERSION,
+)
 from src.serving.predictor import predict_one
 
 app = FastAPI(
@@ -26,15 +44,27 @@ class PredictionRequest(BaseModel):
 
     property_type: str = Field(..., alias="Property Type")
     location_area: str
-    area: float = Field(..., ge=5, le=500, alias="Area")
-    bedrooms: int | None = Field(default=None, ge=1, le=10, alias="Bedrooms")
-    bathrooms: int | None = Field(default=None, ge=0, le=20, alias="Bathrooms")
-    floors: int | None = Field(default=None, ge=0, le=100, alias="Floors")
-    width: float | None = Field(default=None, gt=0, le=100, alias="Width")
-    length: float | None = Field(default=None, gt=0, le=200, alias="Length")
-    alley_width: float | None = Field(default=None, ge=0, le=30, alias="Alley Width")
-    latitude: float | None = Field(default=None, ge=10.3, le=11.2, alias="Latitude")
-    longitude: float | None = Field(default=None, ge=106.3, le=107.0, alias="Longitude")
+    area: float = Field(..., ge=MIN_AREA_M2, le=MAX_AREA_M2, alias="Area")
+    bedrooms: int | None = Field(
+        default=None, ge=MIN_BEDROOMS, le=MAX_BEDROOMS, alias="Bedrooms"
+    )
+    bathrooms: int | None = Field(
+        default=None, ge=MIN_BATHROOMS, le=MAX_BATHROOMS, alias="Bathrooms"
+    )
+    floors: int | None = Field(
+        default=None, ge=MIN_FLOORS, le=MAX_FLOORS, alias="Floors"
+    )
+    width: float | None = Field(default=None, gt=0, le=MAX_WIDTH_M, alias="Width")
+    length: float | None = Field(default=None, gt=0, le=MAX_LENGTH_M, alias="Length")
+    alley_width: float | None = Field(
+        default=None, ge=MIN_ALLEY_WIDTH_M, le=MAX_ALLEY_WIDTH_M, alias="Alley Width"
+    )
+    latitude: float | None = Field(
+        default=None, ge=MIN_LATITUDE, le=MAX_LATITUDE, alias="Latitude"
+    )
+    longitude: float | None = Field(
+        default=None, ge=MIN_LONGITUDE, le=MAX_LONGITUDE, alias="Longitude"
+    )
     direction: str = Field(default="Không rõ", alias="Direction")
     position: str = Field(default="Không rõ", alias="Position")
     title: str | None = Field(default=None, alias="Title")

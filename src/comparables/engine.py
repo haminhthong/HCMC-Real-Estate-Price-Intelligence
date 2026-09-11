@@ -83,37 +83,24 @@ def find_comparables(
     target_lon = _finite_float(values.get("Longitude"))
     target_cbd = _finite_float(values.get("distance_to_cbd_km"))
 
-    def is_dated_past_listing(reference: dict[str, Any]) -> bool:
-        """Chặn future listing khi query có mốc thời gian định giá.
-
-        Nếu query không có ``as_of_date``, engine không áp dụng bộ lọc thời gian.
-        """
-        reference_date = pd.to_datetime(
-            reference.get("listing_date"), errors="coerce", utc=True
-        )
-        if pd.isna(valuation_date):
-            return True
-        return bool(pd.notna(reference_date) and reference_date <= valuation_date)
-
-    # Lọc tin tương lai và tin thiếu ngày khi truy vấn có mốc định giá.
-    dated_candidates = [
-        r
-        for r in references
-        if r.get("property_type") == target_type
-        and (target_group_id is None or r.get("property_group_id") != target_group_id)
-        and is_dated_past_listing(r)
-    ]
-
-    if pd.notna(valuation_date):
-        dated_candidates = [
-            r
-            for r in dated_candidates
-            if (
-                valuation_date
-                - pd.to_datetime(r.get("listing_date"), errors="coerce", utc=True)
-            ).days
-            <= 365
-        ]
+    # Lọc ứng viên: cùng loại hình, khác group ID, không thuộc tương lai và trong vòng 365 ngày
+    dated_candidates = []
+    has_valuation_date = pd.notna(valuation_date)
+    for r in references:
+        if r.get("property_type") != target_type:
+            continue
+        if (
+            target_group_id is not None
+            and r.get("property_group_id") == target_group_id
+        ):
+            continue
+        if has_valuation_date:
+            ref_dt = pd.to_datetime(r.get("listing_date"), errors="coerce", utc=True)
+            if pd.isna(ref_dt) or ref_dt > valuation_date:
+                continue
+            if (valuation_date - ref_dt).days > 365:
+                continue
+        dated_candidates.append(r)
 
     area_candidates = [
         r

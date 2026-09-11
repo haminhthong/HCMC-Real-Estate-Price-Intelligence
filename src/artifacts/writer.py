@@ -46,7 +46,7 @@ def save_atomic_joblib(obj: Any, destination: Path) -> None:
 def _export_comparables(reference_df: pd.DataFrame) -> None:
     """Xuất bảng tham chiếu tối giản, không phụ thuộc Parquet/pyarrow."""
     rows: list[dict[str, Any]] = []
-    for _, row in reference_df.iterrows():
+    for row in reference_df.to_dict(orient="records"):
         area = row.get("Area")
         price = row.get("Price")
         area_value = float(area) if pd.notna(area) and float(area) > 0 else None

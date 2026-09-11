@@ -9,6 +9,7 @@ import pandas as pd
 
 from src.artifacts.loader import load_model
 from src.comparables import find_comparables
+from src.config import MAX_AREA_M2, MIN_AREA_M2
 from src.features.builder import build_features
 from src.features.context import FeatureContext
 
@@ -52,8 +53,10 @@ def predict_one(
     )
 
     area_value = values.get("Area")
-    if pd.isna(area_value) or not 5 <= float(area_value) <= 500:
-        raise ValueError("Area phải nằm trong phạm vi hỗ trợ 5–500 m².")
+    if pd.isna(area_value) or not MIN_AREA_M2 <= float(area_value) <= MAX_AREA_M2:
+        raise ValueError(
+            f"Area phải nằm trong phạm vi hỗ trợ {MIN_AREA_M2:g}–{MAX_AREA_M2:g} m²."
+        )
 
     as_of_date = values.get("as_of_date")
     if as_of_date is None or pd.isna(as_of_date):

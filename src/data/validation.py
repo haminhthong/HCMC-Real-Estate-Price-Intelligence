@@ -3,6 +3,26 @@
 import numpy as np
 import pandas as pd
 
+from src.config import (
+    MAX_ALLEY_WIDTH_M,
+    MAX_AREA_M2,
+    MAX_BATHROOMS,
+    MAX_BEDROOMS,
+    MAX_FLOORS,
+    MAX_LENGTH_M,
+    MAX_PRICE_MILLION,
+    MAX_WIDTH_M,
+    MIN_ALLEY_WIDTH_M,
+    MIN_AREA_M2,
+    MIN_BATHROOMS,
+    MIN_BEDROOMS,
+    MIN_FLOORS,
+    MIN_LENGTH_M,
+    MIN_PRICE_MILLION,
+    MIN_UNIT_PRICE_MILLION_M2,
+    MIN_WIDTH_M,
+)
+
 NUMERIC_COLUMNS: list[str] = [
     "Price",
     "Area",
@@ -20,16 +40,16 @@ NUMERIC_COLUMNS: list[str] = [
 def filter_numeric_outliers(df: pd.DataFrame) -> pd.DataFrame:
     """Ép kiểu số và loại bỏ các bản ghi có giá trị ngoại lệ phi thực tế trên thực địa.
 
-    Điều kiện hợp lệ:
-    - Giá: 100 triệu - 50 tỷ VND
-    - Diện tích: 5m² - 500m²
-    - Đơn giá: >= 10 triệu VND/m²
-    - Số phòng ngủ: NaN hoặc 1 - 10 phòng
-    - Số phòng vệ sinh: NaN hoặc 0 - 20 phòng
-    - Số tầng: NaN hoặc 0 - 100 tầng
-    - Mặt tiền (Width): NaN hoặc 0.1m - 100m
-    - Chiều dài (Length): NaN hoặc 0.1m - 200m
-    - Hẻm (Alley Width): NaN hoặc 0m - 30m
+    Điều kiện hợp lệ tuân thủ các ngưỡng chuẩn trong src.config:
+    - Giá: [MIN_PRICE_MILLION, MAX_PRICE_MILLION) triệu VND
+    - Diện tích: [MIN_AREA_M2, MAX_AREA_M2) m²
+    - Đơn giá: >= MIN_UNIT_PRICE_MILLION_M2 triệu VND/m²
+    - Số phòng ngủ: NaN hoặc [MIN_BEDROOMS, MAX_BEDROOMS]
+    - Số phòng vệ sinh: NaN hoặc [MIN_BATHROOMS, MAX_BATHROOMS]
+    - Số tầng: NaN hoặc [MIN_FLOORS, MAX_FLOORS]
+    - Mặt tiền: NaN hoặc [MIN_WIDTH_M, MAX_WIDTH_M]
+    - Chiều dài: NaN hoặc [MIN_LENGTH_M, MAX_LENGTH_M]
+    - Hẻm: NaN hoặc [MIN_ALLEY_WIDTH_M, MAX_ALLEY_WIDTH_M]
     """
     out = df.copy()
     for col in NUMERIC_COLUMNS:
@@ -39,15 +59,21 @@ def filter_numeric_outliers(df: pd.DataFrame) -> pd.DataFrame:
 
     unit_price = out["Price"] / out["Area"].replace(0, np.nan)
     valid = (
-        out["Price"].between(100, 50_000, inclusive="left")
-        & out["Area"].between(5, 500, inclusive="left")
-        & unit_price.ge(10)
-        & (out["Bedrooms"].isna() | out["Bedrooms"].between(1, 10))
-        & (out["Bathrooms"].isna() | out["Bathrooms"].between(0, 20))
-        & (out["Floors"].isna() | out["Floors"].between(0, 100))
-        & (out["Width"].isna() | out["Width"].between(0.1, 100))
-        & (out["Length"].isna() | out["Length"].between(0.1, 200))
-        & (out["Alley Width"].isna() | out["Alley Width"].between(0, 30))
+        out["Price"].between(MIN_PRICE_MILLION, MAX_PRICE_MILLION, inclusive="left")
+        & out["Area"].between(MIN_AREA_M2, MAX_AREA_M2, inclusive="left")
+        & unit_price.ge(MIN_UNIT_PRICE_MILLION_M2)
+        & (out["Bedrooms"].isna() | out["Bedrooms"].between(MIN_BEDROOMS, MAX_BEDROOMS))
+        & (
+            out["Bathrooms"].isna()
+            | out["Bathrooms"].between(MIN_BATHROOMS, MAX_BATHROOMS)
+        )
+        & (out["Floors"].isna() | out["Floors"].between(MIN_FLOORS, MAX_FLOORS))
+        & (out["Width"].isna() | out["Width"].between(MIN_WIDTH_M, MAX_WIDTH_M))
+        & (out["Length"].isna() | out["Length"].between(MIN_LENGTH_M, MAX_LENGTH_M))
+        & (
+            out["Alley Width"].isna()
+            | out["Alley Width"].between(MIN_ALLEY_WIDTH_M, MAX_ALLEY_WIDTH_M)
+        )
     )
     return out.loc[valid].copy()
 

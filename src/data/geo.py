@@ -7,6 +7,8 @@ from typing import Any
 import numpy as np
 import pandas as pd
 
+from src.config import MAX_LATITUDE, MAX_LONGITUDE, MIN_LATITUDE, MIN_LONGITUDE
+
 
 def _normalize_text(value: Any) -> str:
     """Chuẩn hóa chuỗi văn bản Unicode NFC, chuyển chữ thường và gộp khoảng trắng."""
@@ -66,13 +68,13 @@ def validate_gps_coordinates(
 ) -> pd.DataFrame:
     """Kiểm tra tính hợp lệ của tọa độ GPS trong phạm vi khu vực TP.HCM.
 
-    Phạm vi địa lý TP.HCM: Vĩ độ 10.3 - 11.2, Kinh độ 106.3 - 107.0.
+    Phạm vi địa lý TP.HCM: Vĩ độ [MIN_LATITUDE, MAX_LATITUDE], Kinh độ [MIN_LONGITUDE, MAX_LONGITUDE].
     Các tọa độ ngoài khoảng sẽ được chuyển thành NaN.
     """
     out = df.copy()
     if lat_col in out and lon_col in out:
-        valid_coords = out[lat_col].between(10.3, 11.2) & out[lon_col].between(
-            106.3, 107.0
-        )
+        valid_coords = out[lat_col].between(MIN_LATITUDE, MAX_LATITUDE) & out[
+            lon_col
+        ].between(MIN_LONGITUDE, MAX_LONGITUDE)
         out.loc[~valid_coords, [lat_col, lon_col]] = np.nan
     return out

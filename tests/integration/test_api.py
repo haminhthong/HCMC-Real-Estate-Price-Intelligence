@@ -1,58 +1,57 @@
+"""Kiểm thử tích hợp cho FastAPI endpoints (/health, /predict)."""
+
 from fastapi.testclient import TestClient
 
-from api.main import app
 
-client = TestClient(app)
-
-
-def test_health_schema():
-    response = client.get("/health")
+def test_health_schema(api_client: TestClient):
+    response = api_client.get("/health")
     assert response.status_code == 200
-    assert {"status", "model_loaded"}.issubset(response.json())
-    assert response.json()["model_loaded"] is True
-    assert response.json()["model_type"]
+    data = response.json()
+    assert {"status", "model_loaded", "model_version", "model_type"}.issubset(data)
+    assert data["model_loaded"] is True
+    assert data["status"] == "ok"
 
 
-def test_health_rejects_corrupt_model(monkeypatch):
-    """File tồn tại nhưng không đọc được phải làm readiness thất bại."""
+def test_health_rejects_corrupt_model(api_client: TestClient, monkeypatch):
+    """File tồn tại nhưng không đọc được phải làm readiness thất bại (503)."""
 
     def broken_model():
         raise EOFError("Artifact bị cắt ngắn")
 
     monkeypatch.setattr("api.main.load_model", broken_model)
-    assert client.get("/health").status_code == 503
+    assert api_client.get("/health").status_code == 503
 
 
-def test_invalid_area_is_rejected():
+def test_invalid_area_is_rejected(api_client: TestClient):
     payload = {
         "Property Type": "Nhà riêng",
         "location_area": "Hà Nội",
         "Area": 50,
         "Bedrooms": 2,
     }
-    assert client.post("/predict", json=payload).status_code == 422
+    assert api_client.post("/predict", json=payload).status_code == 422
 
 
-def test_missing_required_value_is_rejected():
+def test_missing_required_value_is_rejected(api_client: TestClient):
     payload = {
         "Property Type": "Nhà riêng",
         "location_area": "Quận 1",
         "Bedrooms": 2,
     }
-    assert client.post("/predict", json=payload).status_code == 422
+    assert api_client.post("/predict", json=payload).status_code == 422
 
 
-def test_nonfinite_area_is_rejected():
+def test_nonfinite_area_is_rejected(api_client: TestClient):
     payload = {
         "Property Type": "Nhà riêng",
         "location_area": "Quận 1",
         "Area": "NaN",
         "Bedrooms": 2,
     }
-    assert client.post("/predict", json=payload).status_code == 422
+    assert api_client.post("/predict", json=payload).status_code == 422
 
 
-def test_prediction_response_schema(monkeypatch):
+def test_prediction_response_schema(api_client: TestClient, monkeypatch):
     expected = {
         "predicted_price_million": 7850.0,
         "prediction_interval": {
@@ -70,7 +69,7 @@ def test_prediction_response_schema(monkeypatch):
         "disclaimer": "Giá tham khảo.",
     }
     monkeypatch.setattr("api.main.predict_one", lambda _val, **_kwargs: expected)
-    response = client.post(
+    response = api_client.post(
         "/predict",
         json={
             "Property Type": "Nhà riêng",
@@ -84,8 +83,8 @@ def test_prediction_response_schema(monkeypatch):
     assert response.json()["prediction_interval"]["coverage"] == 0.8
 
 
-def test_real_prediction_returns_interval_and_comparables():
-    response = client.post(
+def test_real_prediction_returns_interval_and_comparables(api_client: TestClient):
+    response = api_client.post(
         "/predict",
         json={
             "Property Type": "Nhà riêng",
@@ -104,5 +103,5 @@ def test_real_prediction_returns_interval_and_comparables():
     assert len(data["comparables"]) >= 1
 
 
-def test_unknown_endpoint_is_not_part_of_public_contract():
-    assert client.get("/market/districts").status_code == 404
+def test_unknown_endpoint_returns_404(api_client: TestClient):
+    assert api_client.get("/market/districts").status_code == 404

@@ -56,12 +56,10 @@ def calculate_market_time_offset(
             if reference_date is not None
             else pd.Timestamp.now(tz="UTC")
         )
+        as_of_ts = _parse_datetime_utc(as_of_date)
         if isinstance(as_of_date, pd.Series):
-            as_of_ts = _parse_datetime_utc(as_of_date)
             return (as_of_ts - ref_ts).dt.days.fillna(0.0).astype(float)
-        else:
-            as_of_ts = _parse_datetime_utc(as_of_date)
-            offset_days = float((as_of_ts - ref_ts).days)
-            return pd.Series(offset_days, index=dates.index, dtype=float)
+        offset = float((as_of_ts - ref_ts).days) if pd.notna(as_of_ts) else 0.0
+        return pd.Series(offset, index=dates.index, dtype=float)
 
     return calculate_days_from_reference(dates, reference_date=reference_date)

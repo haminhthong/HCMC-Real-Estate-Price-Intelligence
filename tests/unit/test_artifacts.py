@@ -1,7 +1,10 @@
-"""Kiểm tra artifact sai không được âm thầm dùng giá trị mặc định."""
+"""Kiểm thử đơn vị cho việc nạp, kiểm tra và xác thực các artifact."""
 
 import json
+import tempfile
+from pathlib import Path
 
+import joblib
 import pytest
 
 from src.artifacts import loader
@@ -13,6 +16,20 @@ def clear_artifact_cache():
     loader.clear_model_cache()
     yield
     loader.clear_model_cache()
+
+
+def test_missing_model_artifact_raises_file_not_found():
+    fake_path = Path("artifacts/scratch_tmp/non_existent_model.joblib")
+    with pytest.raises(FileNotFoundError):
+        loader.load_model(fake_path)
+
+
+def test_malformed_model_artifact_raises_value_error():
+    with tempfile.TemporaryDirectory() as temp_dir:
+        bad_path = Path(temp_dir) / "bad_model.joblib"
+        joblib.dump({"invalid_key": "data"}, bad_path)
+        with pytest.raises(ValueError, match="không đúng cấu trúc"):
+            loader.load_model(bad_path)
 
 
 @pytest.mark.parametrize(
@@ -57,7 +74,7 @@ def test_missing_summary_fields_fail_loading(monkeypatch):
         loader.load_model()
 
 
-def test_missing_feature_context_does_not_create_request_context():
+def test_missing_feature_context_fails_prediction():
     package = dict(loader.load_model())
     package.pop("feature_context")
     with pytest.raises(KeyError, match="feature_context"):

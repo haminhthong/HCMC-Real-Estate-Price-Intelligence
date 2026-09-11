@@ -42,6 +42,21 @@ def test_reference_listings_are_strict_json():
     json.dumps(loader.load_model()["reference_listings"], allow_nan=False)
 
 
+def test_missing_summary_fields_fail_loading(monkeypatch):
+    """Artifact thiếu metadata chính không được rơi về giá trị mặc định."""
+    read_json = loader._read_json
+
+    def incomplete_summary(path):
+        payload = read_json(path)
+        if path == loader.DATA_SUMMARY_PATH:
+            payload.pop("model_type", None)
+        return payload
+
+    monkeypatch.setattr(loader, "_read_json", incomplete_summary)
+    with pytest.raises(ValueError, match="thiếu trường bắt buộc"):
+        loader.load_model()
+
+
 def test_missing_feature_context_does_not_create_request_context():
     package = dict(loader.load_model())
     package.pop("feature_context")

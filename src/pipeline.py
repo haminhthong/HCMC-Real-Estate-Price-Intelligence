@@ -12,6 +12,7 @@ from typing import Any
 from src.artifacts.loader import clear_model_cache
 from src.artifacts.writer import save_model_artifacts
 from src.calibration.conformal import calibrate_conformal
+from src.comparables import ComparableContext, evaluate_comparables_on_validation
 from src.config import CANONICAL_SPLIT_PROTOCOL, DATA_PATH, MODEL_VERSION, logger
 from src.data.cleaning import clean_data
 from src.data.loader import load_raw_dataset
@@ -95,8 +96,6 @@ def run_pipeline(
     int_metrics = evaluation_result["interval_metrics"]
 
     # Chuẩn bị dữ liệu tham chiếu và đánh giá tin đăng tương đồng.
-    from src.comparables import ComparableContext, evaluate_comparables_on_validation
-
     ref_df = refit_result["df_train_dev"].copy()
     ref_df["distance_to_cbd_km"] = refit_result["features_train_dev"][
         "distance_to_cbd_km"

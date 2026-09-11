@@ -4,7 +4,7 @@ import pandas as pd
 import streamlit as st
 
 from src.artifacts.loader import load_model
-from src.config import CANONICAL_SPLIT_PROTOCOL, RESIDENTIAL_TYPES, SUPPORTED_AREAS
+from src.config import RESIDENTIAL_TYPES, SUPPORTED_AREAS
 from src.serving.predictor import predict_one
 
 try:
@@ -278,17 +278,11 @@ with tab_info:
 
         with c_info1:
             st.markdown("### 🛠️ Cấu hình mô hình")
+            st.write(f"- **Phiên bản mô hình**: `{model_package['version']}`")
+            st.write(f"- **Thuật toán chính**: `{model_package['model_type']}`")
+            st.write(f"- **Split**: `{model_package['split_protocol']}`")
             st.write(
-                f"- **Phiên bản mô hình**: `{model_package.get('version', '1.0.0')}`"
-            )
-            st.write(
-                f"- **Thuật toán chính**: `{model_package.get('model_type', 'ExtraTreesRegressor')}`"
-            )
-            st.write(
-                f"- **Split**: `{model_package.get('split_protocol', CANONICAL_SPLIT_PROTOCOL)}`"
-            )
-            st.write(
-                f"- **Mục tiêu bao phủ Conformal**: `{model_package.get('target_coverage', 0.8) * 100:.0f}%`"
+                f"- **Mục tiêu bao phủ Conformal**: `{model_package['target_coverage'] * 100:.0f}%`"
             )
 
         with c_info2:

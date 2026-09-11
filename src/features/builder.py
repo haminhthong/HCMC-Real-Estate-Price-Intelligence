@@ -8,7 +8,7 @@ from src.config import FLAG_FEATURES, MISSING_INDICATOR_FEATURES
 from .context import FeatureContext
 from .geospatial import calculate_distance_to_cbd
 from .structural import calculate_input_completeness
-from .temporal import calculate_days_from_reference
+from .temporal import calculate_days_from_reference, calculate_market_time_offset
 from .text import add_text_flags
 
 
@@ -90,8 +90,6 @@ def build_features(
         and not (not isinstance(as_of, pd.Series) and pd.isna(as_of))
     )
     if has_as_of:
-        from .temporal import calculate_market_time_offset
-
         time_offset = calculate_market_time_offset(
             listing_dates, context.reference_date, as_of_date=as_of
         )

@@ -69,7 +69,21 @@ def load_model(model_override_path: Path | str | None = None) -> dict[str, Any]:
     feature_context = _read_json(FEATURE_CONTEXT_PATH)
     calibration = _read_json(CALIBRATION_PATH)
     data_summary = _read_json(DATA_SUMMARY_PATH)
-    if data_summary.get("target_formulation") != "total_price":
+    required_summary_fields = {
+        "model_version",
+        "model_type",
+        "target_formulation",
+        "split_protocol",
+        "supported_areas",
+        "property_types",
+    }
+    missing_summary_fields = required_summary_fields - data_summary.keys()
+    if missing_summary_fields:
+        raise ValueError(
+            "Data summary thiếu trường bắt buộc: "
+            + ", ".join(sorted(missing_summary_fields))
+        )
+    if data_summary["target_formulation"] != "total_price":
         raise ValueError("Artifact phải dùng target total_price.")
     quantile = float(calibration["residual_log_quantile"])
     coverage = float(calibration["target_coverage"])
@@ -88,23 +102,23 @@ def load_model(model_override_path: Path | str | None = None) -> dict[str, Any]:
 
     return {
         "pipeline": pipeline,
-        "version": data_summary.get("model_version", "unknown"),
-        "model_type": data_summary.get("model_type", "ExtraTreesRegressor"),
+        "version": data_summary["model_version"],
+        "model_type": data_summary["model_type"],
         "target_formulation": data_summary["target_formulation"],
         "features": (
-            feature_context.get("numeric_features", [])
-            + feature_context.get("categorical_features", [])
-            + feature_context.get("flag_features", [])
-            + feature_context.get("missing_indicator_features", [])
+            feature_context["numeric_features"]
+            + feature_context["categorical_features"]
+            + feature_context["flag_features"]
+            + feature_context["missing_indicator_features"]
         ),
         "feature_context": feature_context,
-        "reference_date": feature_context.get("reference_date"),
+        "reference_date": feature_context["reference_date"],
         "supported_areas": data_summary["supported_areas"],
-        "supported_property_types": data_summary.get("property_types", []),
+        "supported_property_types": data_summary["property_types"],
         "training_ranges": data_summary.get("training_ranges", {}),
         "residual_log_quantile": quantile,
         "target_coverage": coverage,
-        "split_protocol": data_summary.get("split_protocol", "group_isolated_temporal"),
+        "split_protocol": data_summary["split_protocol"],
         "reference_listings": references,
         "comparable_context": comparable_context,
         "segment_unit_prices": segment_prices,

@@ -62,23 +62,10 @@ def analyze_slices(
     )
     test_result["interval_width_million"] = upper_bound - lower_bound
 
-    if "input_completeness_score" in features_test:
-        test_result["input_completeness_score"] = features_test[
-            "input_completeness_score"
-        ].to_numpy()
-    elif "data_quality_score" in features_test:
-        test_result["input_completeness_score"] = features_test[
-            "data_quality_score"
-        ].to_numpy()
-    else:
-        test_result["input_completeness_score"] = 100.0
-
-    if "distance_to_cbd_km" in features_test:
-        test_result["distance_to_cbd_km"] = features_test[
-            "distance_to_cbd_km"
-        ].to_numpy()
-    else:
-        test_result["distance_to_cbd_km"] = 10.0
+    test_result["input_completeness_score"] = features_test[
+        "input_completeness_score"
+    ].to_numpy()
+    test_result["distance_to_cbd_km"] = features_test["distance_to_cbd_km"].to_numpy()
 
     # Các khoảng giá cố định theo tỷ VND; đây không phải phân vị của dữ liệu.
     price_bins = [0, 5000, 10000, 15000, np.inf]

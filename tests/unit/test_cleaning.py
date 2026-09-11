@@ -34,9 +34,34 @@ def test_clean_data_drops_exact_duplicates_only():
     df = pd.DataFrame([row0, row1, row2])
     cleaned = clean_data(df)
 
-    assert len(cleaned) == 2, (
-        "Chỉ 1 bản ghi trùng hoàn toàn bị loại, phải còn lại đúng 2 dòng!"
-    )
-    assert cleaned["property_group_id"].nunique() == 1, (
-        "Cả 2 dòng phải chung 1 property_group_id!"
-    )
+    assert (
+        len(cleaned) == 2
+    ), "Chỉ 1 bản ghi trùng hoàn toàn bị loại, phải còn lại đúng 2 dòng!"
+    assert (
+        cleaned["property_group_id"].nunique() == 1
+    ), "Cả 2 dòng phải chung 1 property_group_id!"
+
+
+def test_clean_data_keeps_different_listing_events():
+    """Hai mã tin khác nhau không bị gộp chỉ vì cùng ngày và cùng giá."""
+    base_listing = {
+        "Price": 5000.0,
+        "Area": 60.0,
+        "Property Type": "Nhà riêng",
+        "Location": "12 Nguyễn Huệ, Quận 1, TP.HCM",
+        "Bedrooms": 2,
+        "Bathrooms": 2,
+        "Width": 4.0,
+        "Length": 15.0,
+        "Latitude": 10.7769,
+        "Longitude": 106.7009,
+        "Last Updated Date": "01/01/2025 10:00",
+    }
+    first = {**base_listing, "Listing ID": "source-1"}
+    second = {**base_listing, "Listing ID": "source-2"}
+
+    cleaned = clean_data(pd.DataFrame([first, second]))
+
+    assert len(cleaned) == 2
+    assert cleaned["listing_event_id"].nunique() == 2
+    assert cleaned["property_group_id"].nunique() == 1

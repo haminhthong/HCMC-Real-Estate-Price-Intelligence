@@ -1,6 +1,7 @@
 """Nạp bốn artifact phẳng dùng chung cho API và Streamlit."""
 
 import json
+import math
 from functools import lru_cache
 from pathlib import Path
 from typing import Any
@@ -35,7 +36,11 @@ def _load_reference_listings() -> list[dict[str, Any]]:
     if not COMPARABLES_PATH.exists():
         raise FileNotFoundError(f"Không tìm thấy bảng comparables: {COMPARABLES_PATH}")
     reference_df = pd.read_csv(COMPARABLES_PATH)
-    return reference_df.where(pd.notna(reference_df), None).to_dict(orient="records")
+    return (
+        reference_df.astype(object)
+        .where(pd.notna(reference_df), None)
+        .to_dict(orient="records")
+    )
 
 
 @lru_cache(maxsize=1)
@@ -64,6 +69,14 @@ def load_model(model_override_path: Path | str | None = None) -> dict[str, Any]:
     feature_context = _read_json(FEATURE_CONTEXT_PATH)
     calibration = _read_json(CALIBRATION_PATH)
     data_summary = _read_json(DATA_SUMMARY_PATH)
+    if data_summary.get("target_formulation") != "total_price":
+        raise ValueError("Artifact phải dùng target total_price.")
+    quantile = float(calibration["residual_log_quantile"])
+    coverage = float(calibration["target_coverage"])
+    if not math.isfinite(quantile) or quantile < 0:
+        raise ValueError("Quantile calibration phải hữu hạn và không âm.")
+    if not 0 < coverage < 1:
+        raise ValueError("Coverage calibration phải thuộc khoảng (0, 1).")
     comparable_context = calibration.get("comparable_context", {})
     references = _load_reference_listings()
 
@@ -77,7 +90,7 @@ def load_model(model_override_path: Path | str | None = None) -> dict[str, Any]:
         "pipeline": pipeline,
         "version": data_summary.get("model_version", "unknown"),
         "model_type": data_summary.get("model_type", "ExtraTreesRegressor"),
-        "target_formulation": data_summary.get("target_formulation", "total_price"),
+        "target_formulation": data_summary["target_formulation"],
         "features": (
             feature_context.get("numeric_features", [])
             + feature_context.get("categorical_features", [])
@@ -89,8 +102,8 @@ def load_model(model_override_path: Path | str | None = None) -> dict[str, Any]:
         "supported_areas": data_summary["supported_areas"],
         "supported_property_types": data_summary.get("property_types", []),
         "training_ranges": data_summary.get("training_ranges", {}),
-        "residual_log_quantile": calibration["residual_log_quantile"],
-        "target_coverage": calibration.get("target_coverage", 0.8),
+        "residual_log_quantile": quantile,
+        "target_coverage": coverage,
         "split_protocol": data_summary.get("split_protocol", "group_isolated_temporal"),
         "reference_listings": references,
         "comparable_context": comparable_context,

@@ -143,6 +143,9 @@ so sánh bổ sung, không tham gia chọn pipeline. Chọn theo MAE trên Valid
 
 ### Conformal interval
 
+Calibration từ chối phần dư âm/không hữu hạn và tập quá nhỏ để lấy quantile hữu
+hạn ở mức bao phủ yêu cầu. Không tự giảm mức bao phủ khi thiếu dữ liệu.
+
 Calibration dùng residual trên cùng không gian log với inference. Khi trả về
 giá tiền, khoảng được ánh xạ ngược bằng `expm1`, vì vậy khoảng tiền có thể bất
 đối xứng. Response có:
@@ -333,7 +336,6 @@ hcmc-real-estate-price-intelligence/
 │   ├── metrics.json
 │   ├── data_summary.json
 │   └── error_analysis.json
-├── notebooks/
 ├── tests/
 ├── .github/workflows/ci.yml
 ├── Dockerfile
@@ -360,8 +362,13 @@ python -m pip install -r requirements-dev.txt
 
 ### Kiểm tra code và test
 
+Dùng môi trường `.venv` đã cài `requirements-dev.txt`. Ruff được pin ở **0.8.0**
+trong dependency và `ruff.toml`; bản khác sẽ bị từ chối để tránh local đạt nhưng
+CI lỗi format. Sau khi chỉnh code, chạy `python -m ruff format api app src tests`.
+
 ```powershell
 python -m pip check
+python -m ruff --version
 python -m ruff check --no-cache api app src tests
 python -m ruff format --check --no-cache api app src tests
 python -m pytest -q -p no:cacheprovider
@@ -372,6 +379,10 @@ python -B -m src.evaluate
 
 Lệnh này dùng dataset mẫu mặc định và ghi đè **snapshot hiện hành** trong
 `artifacts/` và `reports/`:
+
+Huấn luyện trong `.venv` đã cài đúng dependency của repo (scikit-learn 1.5.2),
+không dùng môi trường dùng chung có phiên bản khác rồi mang pickle sang CI.
+Serving yêu cầu FeatureContext đã lưu, không tự tạo context từ request khi thiếu.
 
 ```powershell
 python -B -m src.pipeline train

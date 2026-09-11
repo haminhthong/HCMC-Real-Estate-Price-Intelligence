@@ -90,7 +90,7 @@ def clean_data(raw: pd.DataFrame) -> pd.DataFrame:
     rows_before_dedup = len(df)
     df = (
         df.loc[~exact_row_duplicates]
-        .drop_duplicates(subset=["property_group_id", "listing_date", "Price"])
+        .drop_duplicates(subset=["listing_event_id"])
         .reset_index(drop=True)
     )
     rows_clean = len(df)

@@ -68,9 +68,7 @@ def find_comparables(
     target_area_name = values.get("location_area")
     target_group_id = values.get("property_group_id")
     valuation_date = pd.to_datetime(
-        values.get(
-            "as_of_date", values.get("valuation_date", values.get("listing_date"))
-        ),
+        values.get("as_of_date"),
         errors="coerce",
         utc=True,
     )
@@ -88,8 +86,7 @@ def find_comparables(
     def is_dated_past_listing(reference: dict[str, Any]) -> bool:
         """Chặn future listing khi query có mốc thời gian định giá.
 
-        Luồng serving luôn tự bổ sung ``as_of_date``. Chỉ các caller legacy
-        không truyền mốc thời gian mới được giữ fixture cũ không có ngày.
+        Nếu query không có ``as_of_date``, engine không áp dụng bộ lọc thời gian.
         """
         reference_date = pd.to_datetime(
             reference.get("listing_date"), errors="coerce", utc=True

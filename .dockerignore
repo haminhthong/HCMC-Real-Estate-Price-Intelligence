@@ -2,9 +2,6 @@
 .venv
 __pycache__
 .pytest_cache
-*.ipynb_checkpoints
-notebooks
 tests
 app
 artifacts/figures
-models/*.joblib

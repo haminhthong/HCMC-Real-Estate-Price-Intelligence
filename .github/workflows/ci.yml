@@ -26,7 +26,9 @@ jobs:
       - name: Check dependency consistency
         run: python -m pip check
       - name: Run Ruff
-        run: python -m ruff check --no-cache api app src tests
+        run: |
+          python -m ruff --version
+          python -m ruff check --no-cache api app src tests
       - name: Check Ruff formatting
         run: python -m ruff format --check --no-cache api app src tests
       - name: Run tests

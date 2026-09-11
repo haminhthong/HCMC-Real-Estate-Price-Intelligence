@@ -297,7 +297,7 @@ with tab_info:
                 """
                 1. **Identity trước split**: cùng `property_group_id` không xuyên qua các tập.
                 2. **FeatureContext train-only**: preprocessing được fit trước trên Train.
-                3. **Conformal interval**: Calibration riêng, Final Future Test chỉ dùng để báo cáo.
+                3. **Conformal interval**: Calibration riêng, Final Group-Temporal Test chỉ dùng để báo cáo.
                 """
             )
     except (FileNotFoundError, KeyError, ValueError) as exc:

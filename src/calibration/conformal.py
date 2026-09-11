@@ -24,15 +24,24 @@ def conformal_quantile(residuals: np.ndarray, coverage: float = 0.8) -> float:
     Raises:
         ValueError: Nếu tập phần dư rỗng hoặc coverage không nằm trong khoảng (0, 1).
     """
-    if len(residuals) == 0:
+    residuals = np.asarray(residuals, dtype=float)
+    if residuals.size == 0:
         raise ValueError(
             "Tập phần dư hiệu chỉnh (calibration residuals) không được rỗng."
         )
     if not 0 < coverage < 1:
         raise ValueError("Mức bao phủ (coverage) phải nằm trong khoảng (0, 1).")
 
+    if residuals.ndim != 1 or not np.isfinite(residuals).all() or (residuals < 0).any():
+        raise ValueError("Phần dư phải là mảng một chiều, hữu hạn và không âm.")
+
+    rank = int(np.ceil((len(residuals) + 1) * coverage))
+    if rank > len(residuals):
+        raise ValueError(
+            "Không đủ mẫu calibration để tạo khoảng hữu hạn tại mức bao phủ yêu cầu."
+        )
+
     res_sorted = np.sort(residuals)
-    rank = min(int(np.ceil((len(residuals) + 1) * coverage)), len(residuals))
     return float(res_sorted[rank - 1])
 
 

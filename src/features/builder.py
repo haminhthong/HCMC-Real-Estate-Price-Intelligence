@@ -1,11 +1,9 @@
 """Mô-đun xây dựng tập đặc trưng chính thức (Feature Builder) cho huấn luyện và phục vụ."""
 
-from typing import Any
-
 import numpy as np
 import pandas as pd
 
-from src.config import FLAG_FEATURES, MISSING_INDICATOR_FEATURES, MODEL_FEATURES
+from src.config import FLAG_FEATURES, MISSING_INDICATOR_FEATURES
 
 from .context import FeatureContext
 from .geospatial import calculate_distance_to_cbd
@@ -45,8 +43,6 @@ def build_features(
     # 2. Điểm hoàn thiện dữ liệu (input_completeness_score là chuẩn canonical)
     completeness = calculate_input_completeness(out)
     out["input_completeness_score"] = completeness
-    # Alias tương thích ngược cũ (đã deprecate)
-    out["data_quality_score"] = completeness
 
     # 3. Cờ chỉ báo khuyết thiếu có chủ đích (Missingness Indicators)
     lat_val = (
@@ -81,7 +77,7 @@ def build_features(
     ).astype(int)
 
     # 4. Đặc trưng thời gian và mốc định giá tham chiếu
-    as_of = out.get("as_of_date", out.get("valuation_date"))
+    as_of = out.get("as_of_date")
     listing_dates = (
         out["listing_date"]
         if "listing_date" in out
@@ -105,8 +101,6 @@ def build_features(
         )
 
     out["days_from_train_reference"] = time_offset
-    out["market_time_offset_days"] = time_offset
-    out["listing_age_days"] = time_offset
 
     # 5. Đặc trưng địa không gian
     out["distance_to_cbd_km"] = calculate_distance_to_cbd(
@@ -117,50 +111,10 @@ def build_features(
     )
 
     # 6. Căn chỉnh đầy đủ các cột đặc trưng mô hình
-    target_features = context.model_features if context else MODEL_FEATURES
+    target_features = context.model_features
     zero_fill_cols = set(FLAG_FEATURES) | set(MISSING_INDICATOR_FEATURES)
     for col in target_features:
         if col not in out:
             out[col] = 0 if col in zero_fill_cols else np.nan
 
     return out[target_features].replace([np.inf, -np.inf], np.nan)
-
-
-def add_quality_features(
-    df: pd.DataFrame,
-    reference_date: Any = None,
-) -> pd.DataFrame:
-    """Hàm phụ trợ tương thích ngược tính toán độ hoàn thiện và tuổi tin đăng."""
-    out = df.copy()
-    completeness = calculate_input_completeness(out)
-    out["input_completeness_score"] = completeness
-    out["data_quality_score"] = completeness
-
-    listing_dates = (
-        out["listing_date"]
-        if "listing_date" in out
-        else pd.Series(pd.NaT, index=out.index)
-    )
-    out["days_from_train_reference"] = calculate_days_from_reference(
-        listing_dates, reference_date
-    )
-    out["listing_age_days"] = out["days_from_train_reference"]
-    return out
-
-
-def make_features(
-    df: pd.DataFrame,
-    reference_date: Any = None,
-) -> pd.DataFrame:
-    """Hàm ủy nhiệm tương thích ngược tạo đặc trưng với mốc reference_date đơn lẻ."""
-    if reference_date is not None:
-        ref_str = (
-            reference_date.isoformat()
-            if hasattr(reference_date, "isoformat")
-            else str(reference_date)
-        )
-        ctx = FeatureContext(reference_date=ref_str)
-    else:
-        ctx = FeatureContext.fit(df)
-
-    return build_features(df, context=ctx)

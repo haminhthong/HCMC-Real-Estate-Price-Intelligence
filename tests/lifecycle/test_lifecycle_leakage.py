@@ -7,7 +7,7 @@ from src.config import DATA_PATH, MODEL_FEATURES
 from src.data.cleaning import clean_data
 from src.data.loader import load_raw_dataset
 from src.data.split import split_group_indices
-from src.features.builder import build_features, make_features
+from src.features.builder import build_features
 from src.features.context import FeatureContext
 from src.modeling.selector import select_champion_model
 from src.modeling.trainer import refit_champion_model
@@ -27,9 +27,9 @@ def test_same_property_never_crosses_splits():
     assert train_groups.isdisjoint(val_groups), "Leakage giữa Train và Validation!"
     assert train_groups.isdisjoint(calib_groups), "Leakage giữa Train và Calibration!"
     assert train_groups.isdisjoint(test_groups), "Leakage giữa Train và Test!"
-    assert val_groups.isdisjoint(calib_groups), (
-        "Leakage giữa Validation và Calibration!"
-    )
+    assert val_groups.isdisjoint(
+        calib_groups
+    ), "Leakage giữa Validation và Calibration!"
     assert val_groups.isdisjoint(test_groups), "Leakage giữa Validation và Test!"
     assert calib_groups.isdisjoint(test_groups), "Leakage giữa Calibration và Test!"
 
@@ -51,7 +51,7 @@ def test_repeated_group_stays_together_even_with_old_listing():
 def test_repeated_property_listings_are_not_removed_as_duplicates():
     """Giữ lại các lần đăng lại theo thời gian của cùng một căn nhà.
 
-    Chỉ loại bỏ tin đăng trùng lặp hoàn toàn (cùng property_group_id, listing_date, Price).
+    Chỉ loại bỏ tin đăng trùng lặp hoàn toàn hoặc trùng cùng listing event.
     """
     # Dữ liệu giả có địa chỉ đủ cụ thể; không giả định sample luôn có căn đăng lại.
     base = {
@@ -111,16 +111,14 @@ def test_training_and_serving_feature_vectors_match():
         "Latitude": 10.7769,
         "Longitude": 106.7009,
     }
-    serving_feats = make_features(
-        pd.DataFrame([serving_input]), reference_date=ctx.reference_date
-    )
+    serving_feats = build_features(pd.DataFrame([serving_input]), context=ctx)
 
-    assert train_feats.columns.tolist() == serving_feats.columns.tolist(), (
-        "Cột đặc trưng không khớp giữa Train và Serving!"
-    )
-    assert train_feats.columns.tolist() == MODEL_FEATURES, (
-        "Không khớp với danh sách MODEL_FEATURES chuẩn!"
-    )
+    assert (
+        train_feats.columns.tolist() == serving_feats.columns.tolist()
+    ), "Cột đặc trưng không khớp giữa Train và Serving!"
+    assert (
+        train_feats.columns.tolist() == MODEL_FEATURES
+    ), "Không khớp với danh sách MODEL_FEATURES chuẩn!"
     assert len(train_feats.columns) == len(serving_feats.columns)
 
 
@@ -134,10 +132,10 @@ def test_champion_is_refit_before_calibration():
     df_val = clean.iloc[val_idx]
     df_calib = clean.iloc[calib_idx]
 
-    # Phase A: Tuyển chọn
+    # Giai đoạn A: Tuyển chọn
     selection_result = select_champion_model(df_train, df_val)
 
-    # Phase B: Refit Champion trên Train + Validation
+    # Giai đoạn B: Huấn luyện lại Champion trên Train + Validation
     refit_result = refit_champion_model(
         df_train=df_train,
         df_val=df_val,

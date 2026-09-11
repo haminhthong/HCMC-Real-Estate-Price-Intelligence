@@ -97,7 +97,14 @@ def health() -> dict[str, Any]:
             "model_version": package["version"],
             "model_type": package["model_type"],
         }
-    except Exception as exc:
+    except (
+        FileNotFoundError,
+        ValueError,
+        KeyError,
+        TypeError,
+        OSError,
+        EOFError,
+    ) as exc:
         # Lỗi đọc artifact, kể cả model nhị phân hỏng, làm readiness thất bại.
         raise HTTPException(status_code=503, detail="Model unavailable") from exc
 

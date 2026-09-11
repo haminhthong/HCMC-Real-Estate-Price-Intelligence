@@ -71,12 +71,12 @@ def test_grouped_temporal_split_prioritizes_group_isolation_over_strict_row_date
     multi_indices = frame.index[
         frame["property_group_id"] == "group-multi-listing"
     ].to_numpy()
-    assert set(multi_indices).issubset(set(test)), (
-        "Mọi tin đăng của nhóm phải cùng nằm trong tập mới nhất (Test)"
-    )
-    assert set(multi_indices).isdisjoint(set(train)), (
-        "Không được rò rỉ tin đăng cũ của nhóm sang tập Train"
-    )
+    assert set(multi_indices).issubset(
+        set(test)
+    ), "Mọi tin đăng của nhóm phải cùng nằm trong tập mới nhất (Test)"
+    assert set(multi_indices).isdisjoint(
+        set(train)
+    ), "Không được rò rỉ tin đăng cũ của nhóm sang tập Train"
 
 
 def test_split_returns_iloc_positions_for_non_default_index():

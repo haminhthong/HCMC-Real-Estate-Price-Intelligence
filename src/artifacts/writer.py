@@ -32,8 +32,15 @@ def save_atomic_joblib(obj: Any, destination: Path) -> None:
     """Ghi joblib qua file tạm để không để lại model ghi dở."""
     destination.parent.mkdir(parents=True, exist_ok=True)
     temporary_path = destination.with_suffix(destination.suffix + ".tmp")
-    joblib.dump(obj, temporary_path)
-    os.replace(temporary_path, destination)
+    try:
+        joblib.dump(obj, temporary_path)
+        os.replace(temporary_path, destination)
+    finally:
+        # Dọn file tạm nếu dump hoặc replace thất bại giữa chừng.
+        try:
+            temporary_path.unlink(missing_ok=True)
+        except OSError:
+            pass
 
 
 def _export_comparables(reference_df: pd.DataFrame) -> None:

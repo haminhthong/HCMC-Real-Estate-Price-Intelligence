@@ -45,7 +45,7 @@ def add_text_flags(df: pd.DataFrame) -> pd.DataFrame:
         if flag in out:
             # Chỉ dùng cờ gửi sẵn cho đúng những dòng không có văn bản.
             # Không dùng has_text.any() vì một dòng có text không được làm
-            # mất giá trị fallback của các dòng khác trong cùng batch.
+            # mất giá trị dự phòng của các dòng khác trong cùng batch.
             supplied = pd.to_numeric(out[flag], errors="coerce")
             resolved = extracted.astype("float64")
             fallback_mask = ~has_text & supplied.notna()

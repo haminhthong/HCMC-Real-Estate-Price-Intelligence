@@ -18,3 +18,18 @@ def test_conformal_quantile_exceptions():
 
     with pytest.raises(ValueError, match="khoảng \\(0, 1\\)"):
         conformal_quantile(np.array([1.0]), coverage=1.2)
+
+
+@pytest.mark.parametrize(
+    "residuals", [[float("nan")], [float("inf")], [-1.0], [[1, 2]]]
+)
+def test_invalid_residuals_are_rejected(residuals):
+    """Không tạo khoảng dự báo từ phần dư sai kiểu hoặc không hữu hạn."""
+    with pytest.raises(ValueError, match="một chiều"):
+        conformal_quantile(np.asarray(residuals), coverage=0.5)
+
+
+def test_insufficient_calibration_size_is_rejected():
+    """Không hạ thứ hạng quantile để giả vờ đạt mức bao phủ yêu cầu."""
+    with pytest.raises(ValueError, match="Không đủ mẫu"):
+        conformal_quantile(np.array([1.0]), coverage=0.8)

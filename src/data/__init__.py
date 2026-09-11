@@ -14,13 +14,12 @@ from .cleaning import clean_data
 from .geo import extract_area, validate_gps_coordinates
 from .identity import assign_property_group, make_property_signature
 from .loader import load_raw_dataset
-from .schema import REQUIRED_RAW_COLUMNS, PropertyRecord, validate_raw_schema
+from .schema import REQUIRED_RAW_COLUMNS, validate_raw_schema
 from .split import split_group_indices
 from .validation import filter_numeric_outliers, parse_listing_dates
 
 __all__ = [
     "REQUIRED_RAW_COLUMNS",
-    "PropertyRecord",
     "assign_property_group",
     "clean_data",
     "extract_area",

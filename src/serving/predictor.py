@@ -9,7 +9,6 @@ import pandas as pd
 
 from src.artifacts.loader import load_model
 from src.comparables import find_comparables
-from src.config import MISSING_INDICATOR_FEATURES
 from src.features.builder import build_features
 from src.features.context import FeatureContext
 
@@ -56,7 +55,7 @@ def predict_one(
     if pd.isna(area_value) or not 5 <= float(area_value) <= 500:
         raise ValueError("Area phải nằm trong phạm vi hỗ trợ 5–500 m².")
 
-    as_of_date = values.get("as_of_date", values.get("valuation_date"))
+    as_of_date = values.get("as_of_date")
     if as_of_date is None or pd.isna(as_of_date):
         as_of_date = datetime.now(ZoneInfo("Asia/Ho_Chi_Minh")).date().isoformat()
     as_of_timestamp = pd.to_datetime(as_of_date, errors="coerce", utc=True)
@@ -74,27 +73,11 @@ def predict_one(
         market_age_days = int((as_of_timestamp - reference_timestamp).days)
 
     row = pd.DataFrame([{**values, "as_of_date": as_of_date}])
-    context_data = model_package.get("feature_context")
-    if context_data:
-        feature_context = FeatureContext.from_dict(context_data)
-    else:
-        package_features = set(model_package.get("features", []))
-        feature_context = FeatureContext(
-            reference_date=as_of_date,
-            missing_indicator_features=(
-                list(MISSING_INDICATOR_FEATURES)
-                if package_features.intersection(MISSING_INDICATOR_FEATURES)
-                else []
-            ),
-        )
+    # Không tạo context từ request: serving phải dùng context của lần huấn luyện.
+    feature_context = FeatureContext.from_dict(model_package["feature_context"])
     feature_frame = build_features(row, context=feature_context)
 
-    completeness = float(
-        feature_frame.iloc[0].get(
-            "input_completeness_score",
-            feature_frame.iloc[0].get("data_quality_score", 100.0),
-        )
-    )
+    completeness = float(feature_frame.iloc[0]["input_completeness_score"])
     raw_prediction = float(model_package["pipeline"].predict(feature_frame)[0])
     predicted_price = max(float(np.expm1(raw_prediction)), 0.0)
     residual_quantile = float(model_package["residual_log_quantile"])

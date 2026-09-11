@@ -9,6 +9,7 @@ import pytest
 
 from src.artifacts.loader import load_model
 from src.calibration.conformal import conformal_quantile
+from src.features.context import FeatureContext
 from src.serving.predictor import predict_one
 
 
@@ -168,9 +169,9 @@ def test_conformal_residual_space_matches_inference_space():
     # Khoảng tiền tệ là bất đối xứng (Asymmetric Monetary Interval)
     diff_upper = upper_price - pred_price
     diff_lower = pred_price - lower_price
-    assert diff_upper > diff_lower, (
-        "Do tính lồi của hàm mũ expm1, khoảng cách cận trên phải lớn hơn cận dưới"
-    )
+    assert (
+        diff_upper > diff_lower
+    ), "Do tính lồi của hàm mũ expm1, khoảng cách cận trên phải lớn hơn cận dưới"
 
     # Kiểm tra tính tương đương toán học giữa log-space và price-space
     log_pred = np.log1p(pred_price)
@@ -188,6 +189,7 @@ def test_comparable_engine_returns_valid_matches():
         "location_area": "Quận 1",
         "Area": 80.0,
         "Bedrooms": 3,
+        "as_of_date": "2026-09-10",
     }
     result = predict_one(sample_input)
     assert "comparables" in result
@@ -203,25 +205,28 @@ def test_comparable_engine_returns_valid_matches():
 
 def test_days_from_reference_no_negative_collapse():
     """Đảm bảo listing_date mới hơn mốc tham chiếu không bị collapse về 0."""
-    from src.features.builder import make_features
+    from src.features.builder import build_features
 
     ref_date = pd.Timestamp("2025-01-01")
     # Tin đăng mới hơn 100 ngày
     future_listing = pd.DataFrame([{"listing_date": pd.Timestamp("2025-04-11")}])
-    features = make_features(future_listing, reference_date=ref_date)
+    features = build_features(
+        future_listing,
+        context=FeatureContext(reference_date=ref_date.isoformat()),
+    )
     assert features["days_from_train_reference"].iloc[0] == 100
     assert features["days_from_train_reference"].iloc[0] != 0
 
 
 def test_text_flag_negation_handling():
     """Kiểm tra xử lý từ phủ định cho các cờ nhị phân."""
-    from src.features.builder import make_features
+    from src.features.builder import build_features
 
     # Nhà không có nội thất
     row_no_furniture = pd.DataFrame(
         [{"Title": "Nhà đẹp", "Description": "nhà trống không có nội thất, hẻm ô tô"}]
     )
-    feats_no = make_features(row_no_furniture)
+    feats_no = build_features(row_no_furniture)
     assert feats_no["has_furniture"].iloc[0] == 0
     assert feats_no["car_alley"].iloc[0] == 1
 
@@ -229,5 +234,5 @@ def test_text_flag_negation_handling():
     row_furniture = pd.DataFrame(
         [{"Title": "Nhà đẹp", "Description": "full nội thất cao cấp"}]
     )
-    feats_yes = make_features(row_furniture)
+    feats_yes = build_features(row_furniture)
     assert feats_yes["has_furniture"].iloc[0] == 1

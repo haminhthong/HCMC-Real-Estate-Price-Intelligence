@@ -93,7 +93,7 @@ def test_find_comparables_multi_dimensional():
     }
     comps, summary = find_comparables(model_pkg, query, n_matches=2)
     assert len(comps) == 2
-    # Top match should be 82m2 or 78m2, not the 250m2 villa
+    # Kết quả đầu phải gần 82m² hoặc 78m², không phải biệt thự 250m².
     assert comps[0]["area"] in (82.0, 78.0)
     assert (
         comps[0]["similarity_score"] > comps[1]["similarity_score"]

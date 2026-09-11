@@ -92,6 +92,7 @@ def test_real_prediction_returns_interval_and_comparables():
             "location_area": "Quận 1",
             "Area": 75.0,
             "Bedrooms": 3,
+            "as_of_date": "2026-09-10",
         },
     )
     assert response.status_code == 200
